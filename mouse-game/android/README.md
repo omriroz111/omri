@@ -4,8 +4,9 @@ A small Android wrapper that plays `../index.html` in a full-screen WebView.
 The game runs fully offline: fonts are bundled from `fonts/` (SIL OFL 1.1).
 
 - Package: `com.omri.cheeserun`, min Android 7.0 (API 24), target API 34
-- Back button pauses a running game; from the menus it closes the app
-- The screen stays on while playing; rotation keeps the current game
+- Portrait only; the game is played with a floating joystick under the thumb
+- Back button pauses a running game and steps back through the menus; from the main menu it closes the app
+- The screen stays on while playing
 
 ## Build
 
