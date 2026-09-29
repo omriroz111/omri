@@ -1,0 +1,1772 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>מרוץ הגבינה</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Rubik+Pixels&family=Rubik:wght@400;500;700&family=Silkscreen&display=swap">
+<style>
+/* Layout: a one-screen arcade cabinet. HUD strip on top, pixel stage in the middle, touch pad below on phones.
+   Deliberately single-theme: the game always takes place in a kitchen at night. */
+:root {
+  color-scheme: dark;
+  --night: #120e22;
+  --night-2: #1b1532;
+  --panel: #231b3d;
+  --line: #3d3166;
+  --ink: #f7ecd6;
+  --muted: #b3a9d3;
+  --cheese: #ffd23f;
+  --cheese-deep: #e8931c;
+  --cat: #ee7d3a;
+  --danger: #ff5d6c;
+  --display: "Rubik Pixels", "Rubik", "Heebo", "Arial Hebrew", system-ui, sans-serif;
+  --body: "Rubik", "Heebo", "Arial Hebrew", system-ui, sans-serif;
+  --digits: "Silkscreen", ui-monospace, "Courier New", monospace;
+  --stage-w: 672px;
+  --stage-h: 480px;
+  --px: 4px;
+}
+[hidden] { display: none !important; }
+html, body { height: 100%; }
+body {
+  margin: 0;
+  background-color: var(--night);
+  background-image: radial-gradient(var(--night-2) 1.5px, transparent 1.5px);
+  background-size: 12px 12px;
+  color: var(--ink);
+  font-family: var(--body);
+  font-size: 15px;
+  line-height: 1.5;
+  overflow: hidden;
+  -webkit-tap-highlight-color: transparent;
+}
+.game {
+  height: 100%;
+  box-sizing: border-box;
+  padding-inline: 16px;
+  padding-block: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+}
+
+/* ---------- HUD ---------- */
+.hud {
+  width: var(--stage-w);
+  max-width: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  gap: 10px 18px;
+  font-variant-numeric: tabular-nums;
+}
+.stat { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.stat.grow { flex: 1 1 140px; }
+.label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--muted);
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+.value {
+  font-family: var(--digits);
+  font-size: 20px;
+  line-height: 1.1;
+  color: var(--ink);
+  direction: ltr;
+  text-align: right;
+}
+.value.small { font-size: 14px; }
+.bar {
+  position: relative;
+  height: 14px;
+  background: var(--night);
+  box-shadow: 0 -2px 0 var(--line), 0 2px 0 var(--line), -2px 0 0 var(--line), 2px 0 0 var(--line);
+  margin-block-start: 5px;
+  overflow: hidden;
+}
+.bar-fill {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 0;
+  width: 0%;
+  background: repeating-linear-gradient(90deg, var(--cheese) 0 10px, var(--cheese-deep) 10px 12px);
+  transition: width 180ms steps(4);
+}
+.hearts { display: flex; gap: 4px; align-items: center; height: 22px; }
+.hearts img { width: 18px; height: 16px; image-rendering: pixelated; }
+.tools { display: flex; gap: 10px; align-items: center; margin-inline-start: auto; }
+.icon-btn {
+  width: 38px; height: 38px;
+  display: grid; place-items: center;
+  border: 0; padding: 0;
+  background: var(--panel);
+  color: var(--ink);
+  box-shadow: 0 -3px 0 var(--line), 0 3px 0 var(--line), -3px 0 0 var(--line), 3px 0 0 var(--line);
+  cursor: pointer;
+}
+.icon-btn svg { width: 20px; height: 20px; shape-rendering: crispEdges; }
+.icon-btn:hover { background: var(--line); }
+.icon-btn:focus-visible, .btn:focus-visible, .pad button:focus-visible {
+  outline: 3px solid var(--cheese);
+  outline-offset: 5px;
+}
+.icon-btn .off { display: none; }
+.icon-btn[aria-pressed="true"] .on { display: none; }
+.icon-btn[aria-pressed="true"] .off { display: inline; }
+
+/* ---------- Stage ---------- */
+.stage {
+  position: relative;
+  width: var(--stage-w);
+  height: var(--stage-h);
+  flex: none;
+  box-shadow:
+    0 calc(var(--px) * -1) 0 var(--line), 0 var(--px) 0 var(--line),
+    calc(var(--px) * -1) 0 0 var(--line), var(--px) 0 0 var(--line),
+    0 0 0 calc(var(--px) * 2) var(--night), 0 0 60px 10px rgb(255 210 63 / 0.07);
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  container-type: size;
+}
+canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  background: #0b0816;
+}
+.overlay {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgb(14 10 28 / 0.80);
+  overflow: auto;
+  padding: 14px;
+  box-sizing: border-box;
+}
+.screen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 12px;
+  max-width: 34em;
+}
+.logo {
+  margin: 0;
+  font-family: var(--display);
+  font-weight: 400;
+  font-size: clamp(30px, 11cqw, 64px);
+  line-height: 1;
+  color: var(--cheese);
+  text-shadow: 3px 3px 0 var(--cheese-deep), 6px 6px 0 #5a2d12;
+  text-wrap: balance;
+}
+.screen h2 {
+  margin: 0;
+  font-family: var(--display);
+  font-weight: 400;
+  font-size: clamp(26px, 8cqw, 48px);
+  line-height: 1.05;
+  color: var(--cheese);
+  text-shadow: 3px 3px 0 #5a2d12;
+  text-wrap: balance;
+}
+.screen h2.bad { color: var(--danger); text-shadow: 3px 3px 0 #4a1020; }
+.tag { margin: 0; color: var(--ink); font-size: clamp(13px, 3.2cqw, 17px); text-wrap: balance; }
+.legend {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, auto));
+  gap: 6px 22px;
+  text-align: start;
+  font-size: clamp(12px, 2.7cqw, 15px);
+}
+.legend li { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.legend img { width: 24px; height: 24px; image-rendering: pixelated; flex: none; }
+.legend b { font-family: var(--digits); font-weight: 400; color: var(--cheese); direction: ltr; unicode-bidi: isolate; }
+.cats {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px 16px;
+  font-size: 13px;
+  color: var(--muted);
+}
+.cats span { display: inline-flex; align-items: center; gap: 4px; }
+.cats img { width: 28px; height: 28px; image-rendering: pixelated; }
+.btn {
+  font-family: var(--body);
+  font-weight: 700;
+  font-size: 18px;
+  color: #2a1606;
+  background: var(--cheese);
+  border: 0;
+  padding: 10px 28px;
+  cursor: pointer;
+  box-shadow:
+    0 -4px 0 #2a1606, 0 4px 0 #2a1606, -4px 0 0 #2a1606, 4px 0 0 #2a1606,
+    inset 0 -4px 0 var(--cheese-deep);
+  transition: transform 80ms steps(2);
+}
+.btn:hover { transform: translateY(-2px); }
+.btn:active { transform: translateY(2px); }
+.keys { margin: 0; font-size: 12px; color: var(--muted); }
+.keys kbd {
+  font-family: var(--digits);
+  font-size: 11px;
+  padding: 1px 5px;
+  background: var(--panel);
+  color: var(--ink);
+  box-shadow: 0 2px 0 var(--line);
+}
+.result {
+  display: flex;
+  gap: 28px;
+  justify-content: center;
+  font-variant-numeric: tabular-nums;
+}
+.result div { display: flex; flex-direction: column; align-items: center; }
+.result .value { font-size: 26px; text-align: center; }
+.toast {
+  position: absolute;
+  inset-inline: 0;
+  top: 12%;
+  margin-inline: auto;
+  width: max-content;
+  max-width: 90%;
+  padding: 6px 16px;
+  font-weight: 700;
+  font-size: clamp(14px, 3.4cqw, 20px);
+  color: #2a1606;
+  background: var(--cheese);
+  box-shadow: 0 -3px 0 #2a1606, 0 3px 0 #2a1606, -3px 0 0 #2a1606, 3px 0 0 #2a1606;
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(-6px);
+  transition: opacity 160ms, transform 160ms steps(3);
+}
+.toast.show { opacity: 1; transform: none; }
+.toast.cold { background: #9fd8ff; }
+.toast.hot { background: #ff8a5c; }
+@container (max-height: 330px) {
+  .cats { display: none; }
+  .screen { gap: 8px; }
+  .legend { gap: 2px 16px; }
+  .legend img { width: 18px; height: 18px; }
+  .keys { display: none; }
+  .btn { font-size: 16px; padding: 7px 22px; }
+}
+@container (max-height: 250px) {
+  .tag { display: none; }
+}
+@container (max-width: 480px) {
+  .tag { display: none; }
+  .legend { grid-template-columns: minmax(0, 1fr); gap: 1px; font-size: 12px; }
+  .legend img { width: 16px; height: 16px; }
+  .logo { font-size: 34px; }
+}
+
+/* ---------- Touch pad ---------- */
+.pad {
+  display: none;
+  grid-template-columns: repeat(3, 58px);
+  grid-template-rows: repeat(3, 50px);
+  gap: 6px;
+  direction: ltr;
+  flex: none;
+}
+.pad button {
+  border: 0;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  background: var(--panel);
+  color: var(--ink);
+  box-shadow: 0 -3px 0 var(--line), 0 3px 0 var(--line), -3px 0 0 var(--line), 3px 0 0 var(--line);
+  touch-action: none;
+}
+.pad button.held { background: var(--line); color: var(--cheese); }
+.pad svg { width: 22px; height: 22px; shape-rendering: crispEdges; }
+.pad .up { grid-area: 1 / 2; }
+.pad .left { grid-area: 2 / 1; }
+.pad .right { grid-area: 2 / 3; }
+.pad .down { grid-area: 3 / 2; }
+.pad .left svg { transform: rotate(-90deg); }
+.pad .right svg { transform: rotate(90deg); }
+.pad .down svg { transform: rotate(180deg); }
+.hint { margin: 0; font-size: 12px; color: var(--muted); text-align: center; }
+@media (pointer: coarse) {
+  .pad { display: grid; }
+  .hint { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .bar-fill, .btn, .toast { transition: none; }
+}
+</style>
+</head>
+<body>
+<main class="game" id="game">
+  <header class="hud" id="hud">
+    <div class="stat"><span class="label">ניקוד</span><span class="value" id="score">0</span></div>
+    <div class="stat"><span class="label">שלב</span><span class="value" id="level">1</span></div>
+    <div class="stat grow">
+      <span class="label">גבינה <span id="goalText">0/8</span></span>
+      <div class="bar" role="progressbar" aria-label="גבינה שנאספה" aria-valuemin="0" aria-valuemax="8" aria-valuenow="0" id="barWrap"><div class="bar-fill" id="bar"></div></div>
+    </div>
+    <div class="stat"><span class="label">חיים</span><span class="hearts" id="lives"></span></div>
+    <div class="tools">
+      <button class="icon-btn" id="soundBtn" type="button" aria-label="השתקה" aria-pressed="false" title="צליל (M)">
+        <svg viewBox="0 0 10 10" aria-hidden="true"><g fill="currentColor"><rect x="1" y="3" width="2" height="4"/><rect x="3" y="2" width="1" height="6"/><rect x="4" y="1" width="1" height="8"/></g><g class="on" fill="currentColor"><rect x="6" y="4" width="1" height="2"/><rect x="7" y="2" width="1" height="1"/><rect x="8" y="3" width="1" height="4"/><rect x="7" y="7" width="1" height="1"/></g><g class="off" fill="currentColor"><rect x="6" y="3" width="1" height="1"/><rect x="7" y="4" width="1" height="2"/><rect x="8" y="3" width="1" height="1"/><rect x="6" y="6" width="1" height="1"/><rect x="8" y="6" width="1" height="1"/></g></svg>
+      </button>
+      <button class="icon-btn" id="pauseBtn" type="button" aria-label="השהיה" title="השהיה (P)">
+        <svg viewBox="0 0 10 10" aria-hidden="true"><g fill="currentColor"><rect x="2" y="2" width="2" height="6"/><rect x="6" y="2" width="2" height="6"/></g></svg>
+      </button>
+    </div>
+  </header>
+
+  <div class="stage" id="stage">
+    <canvas id="screen" width="336" height="240" aria-label="לוח המשחק"></canvas>
+    <div class="toast" id="toast" aria-live="polite"></div>
+
+    <div class="overlay" id="overlay">
+      <section class="screen" id="titleScreen">
+        <h1 class="logo">מרוץ הגבינה</h1>
+        <p class="tag">אתם עכבר קטן במטבח בלילה. אספו את הגבינה לפני שהחתולים תופסים אתכם.</p>
+        <ul class="legend">
+          <li><img data-icon="cheese" alt=""><span>גבינה <b>+10</b></span></li>
+          <li><img data-icon="gold" alt=""><span>גבינת זהב <b>+50</b></span></li>
+          <li><img data-icon="chili" alt=""><span>פלפל חריף: ריצה מהירה</span></li>
+          <li><img data-icon="yarn" alt=""><span>כדור צמר: החתולים מתבלבלים</span></li>
+          <li><img data-icon="hole" alt=""><span>חור בקיר: מעבר לצד השני</span></li>
+          <li><img data-icon="heart" alt=""><span>חיים נוספים ב־<b>1500</b></span></li>
+        </ul>
+        <div class="cats" id="catRoll"></div>
+        <button class="btn" id="startBtn" type="button">התחילו לרוץ</button>
+        <p class="keys"><kbd>←↑↓→</kbd> או <kbd>WASD</kbd> לתזוזה · <kbd>P</kbd> השהיה · <kbd>M</kbd> צליל · שיא: <span id="bestTitle">0</span></p>
+      </section>
+
+      <section class="screen" id="pauseScreen" hidden>
+        <h2>הפסקה</h2>
+        <p class="tag">החתולים מחכים בסבלנות. בינתיים.</p>
+        <button class="btn" id="resumeBtn" type="button">המשיכו</button>
+      </section>
+
+      <section class="screen" id="overScreen" hidden>
+        <h2 class="bad">החתולים ניצחו</h2>
+        <div class="result">
+          <div><span class="label">ניקוד</span><span class="value" id="finalScore">0</span></div>
+          <div><span class="label">שלב</span><span class="value" id="finalLevel">1</span></div>
+          <div><span class="label">שיא</span><span class="value" id="finalBest">0</span></div>
+        </div>
+        <p class="tag" id="overNote"></p>
+        <button class="btn" id="againBtn" type="button">שחקו שוב</button>
+      </section>
+    </div>
+  </div>
+
+  <div class="pad" id="pad" aria-label="כיוונים">
+    <button class="up" type="button" data-dir="up" aria-label="למעלה"><svg viewBox="0 0 7 7" aria-hidden="true"><g fill="currentColor"><rect x="3" y="0" width="1" height="1"/><rect x="2" y="1" width="3" height="1"/><rect x="1" y="2" width="5" height="1"/><rect x="0" y="3" width="7" height="1"/><rect x="2" y="4" width="3" height="3"/></g></svg></button>
+    <button class="left" type="button" data-dir="left" aria-label="שמאלה"><svg viewBox="0 0 7 7" aria-hidden="true"><g fill="currentColor"><rect x="3" y="0" width="1" height="1"/><rect x="2" y="1" width="3" height="1"/><rect x="1" y="2" width="5" height="1"/><rect x="0" y="3" width="7" height="1"/><rect x="2" y="4" width="3" height="3"/></g></svg></button>
+    <button class="right" type="button" data-dir="right" aria-label="ימינה"><svg viewBox="0 0 7 7" aria-hidden="true"><g fill="currentColor"><rect x="3" y="0" width="1" height="1"/><rect x="2" y="1" width="3" height="1"/><rect x="1" y="2" width="5" height="1"/><rect x="0" y="3" width="7" height="1"/><rect x="2" y="4" width="3" height="3"/></g></svg></button>
+    <button class="down" type="button" data-dir="down" aria-label="למטה"><svg viewBox="0 0 7 7" aria-hidden="true"><g fill="currentColor"><rect x="3" y="0" width="1" height="1"/><rect x="2" y="1" width="3" height="1"/><rect x="1" y="2" width="5" height="1"/><rect x="0" y="3" width="7" height="1"/><rect x="2" y="4" width="3" height="3"/></g></svg></button>
+  </div>
+  <p class="hint" id="hint">חיצים או WASD לתזוזה · P להשהיה · M לצליל</p>
+</main>
+
+<script>
+(() => {
+'use strict';
+
+// ============================================================
+// Constants and helpers
+// ============================================================
+const T = 16, COLS = 21, ROWS = 15, W = COLS * T, H = ROWS * T;
+const STEP = 1 / 120;
+const DIRS = [{ x: 0, y: -1 }, { x: -1, y: 0 }, { x: 0, y: 1 }, { x: 1, y: 0 }];
+const KEYDIR = {
+  ArrowUp: DIRS[0], KeyW: DIRS[0],
+  ArrowLeft: DIRS[1], KeyA: DIRS[1],
+  ArrowDown: DIRS[2], KeyS: DIRS[2],
+  ArrowRight: DIRS[3], KeyD: DIRS[3],
+};
+const NAMED = { up: DIRS[0], left: DIRS[1], down: DIRS[2], right: DIRS[3] };
+
+const $ = (id) => document.getElementById(id);
+const canvas = $('screen');
+const ctx = canvas.getContext('2d');
+ctx.imageSmoothingEnabled = false;
+const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+const store = {
+  get(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* storage unavailable */ } },
+};
+
+function hash(x, y, s) {
+  let h = (x * 374761393 + y * 668265263 + (s | 0) * 1442695041) | 0;
+  h = Math.imul(h ^ (h >>> 13), 1274126177);
+  return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
+}
+const rand = (a, b) => a + Math.random() * (b - a);
+const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
+
+function newCanvas(w, h) {
+  const c = document.createElement('canvas');
+  c.width = w; c.height = h;
+  const g = c.getContext('2d');
+  g.imageSmoothingEnabled = false;
+  return [c, g];
+}
+
+// ============================================================
+// Maps. # furniture / wall, . floor, M mouse start, H mouse hole,
+// C cat bed (cats only), D cat door (cats only)
+// ============================================================
+const MAPS = [
+  [
+    '#####################',
+    '#.........#.........#',
+    '#.##.####.#.####.##.#',
+    '#...................#',
+    '#.##.#.###D###.#.##.#',
+    '#....#.#CCCCC#.#....#',
+    '####.#.#######.#.####',
+    'H....#.........#....H',
+    '####.#.###.###.#.####',
+    '#.........M.........#',
+    '#.##.####.#.####.##.#',
+    '#..#.............#..#',
+    '#..#.#.##.#.##.#.#..#',
+    '#....#....#....#....#',
+    '#####################',
+  ],
+  [
+    '#####################',
+    '#...#.....#.....#...#',
+    '#.#.#.###.#.###.#.#.#',
+    '#.#...............#.#',
+    '#.#.##.###D###.##.#.#',
+    '#......#CCCCC#......#',
+    '###.##.#######.##.###',
+    'H...................H',
+    '###.######.######.###',
+    '#.....#...M...#.....#',
+    '#.###.#.#####.#.###.#',
+    '#.#...............#.#',
+    '#.#.#.###.#.###.#.#.#',
+    '#...#.....#.....#...#',
+    '#####################',
+  ],
+  [
+    '#####################',
+    '#.......#...#.......#',
+    '#.#####.#.#.#.#####.#',
+    '#.#...............#.#',
+    '#.#.#..###D###..#.#.#',
+    '#...#..#CCCCC#..#...#',
+    '#.###.#########.###.#',
+    'H...................H',
+    '#.#.#####.#.#####.#.#',
+    '#.#.......M.......#.#',
+    '#.#.###.#####.###.#.#',
+    '#.....#.......#.....#',
+    '#.###.#.##.##.#.###.#',
+    '#...................#',
+    '#####################',
+  ],
+];
+
+const THEMES = [
+  {
+    name: 'המטבח', floor: 'check', detail: 'cabinet',
+    floorA: '#2d3b66', floorB: '#26315a', grout: '#1c2448', speck: '#3a4a7c',
+    top: '#c98a4b', topHi: '#e8b270', topLo: '#9c6534', front: '#7a4a2b', frontHi: '#98603a', frontLo: '#4f2c1a', trim: '#f0cf86',
+    room: '#2c2146', roomHi: '#44336a', roomLo: '#1a1330', paper: '#4b3a73', paper2: '#433366', base: '#6b4a2e',
+  },
+  {
+    name: 'הסלון', floor: 'carpet', detail: 'books',
+    floorA: '#1f4a4f', floorB: '#1a4045', grout: '#153438', speck: '#2c6068',
+    top: '#8e5c3c', topHi: '#b27a50', topLo: '#6c422a', front: '#56321f', frontHi: '#6d4029', frontLo: '#341c10', trim: '#d9b27a',
+    room: '#3a2238', roomHi: '#57345a', roomLo: '#24142a', paper: '#5b3050', paper2: '#512a48', base: '#4e3120',
+  },
+  {
+    name: 'המזווה', floor: 'stone', detail: 'jars',
+    floorA: '#434a42', floorB: '#3b423a', grout: '#2a2f2a', speck: '#555d52',
+    top: '#b99257', topHi: '#dcb676', topLo: '#8f6c3c', front: '#6e5230', frontHi: '#86653c', frontLo: '#45321c', trim: '#f2dca0',
+    room: '#2a2a22', roomHi: '#44443a', roomLo: '#191912', paper: '#4b4636', paper2: '#433f30', base: '#5c4228',
+  },
+];
+
+// ============================================================
+// Sprites (pixel strings, palette-mapped)
+// ============================================================
+const OUT = '#170f24';
+const SPR = {
+  mouse: [
+    '................',
+    '................',
+    '................',
+    '................',
+    '................',
+    '.........kkk....',
+    '........kpppk...',
+    '........kpPpk...',
+    '....kkkkkpppk...',
+    '...kggggggkkgk..',
+    '..kgggggggggwek.',
+    'p.kgggggggggggpk',
+    '.pkglllllgggGkk.',
+    '..kkGlllGGGGk...',
+    '...kkGkkkkGkk...',
+    '....kk...kk.....',
+  ],
+  mouse2: [
+    '................',
+    '................',
+    '................',
+    '................',
+    '................',
+    '.........kkk....',
+    '........kpppk...',
+    '........kpPpk...',
+    '....kkkkkpppk...',
+    '...kggggggkkgk..',
+    'p.kgggggggggwek.',
+    '.pkgggggggggggpk',
+    '..kglllllgggGkk.',
+    '..kkGlllGGGGk...',
+    '..kkGkk..kGkk...',
+    '..kk.......kk...',
+  ],
+  mouseHit: [
+    '................',
+    '................',
+    '................',
+    '................',
+    '................',
+    '.........kkk....',
+    '........kpppk...',
+    '........kpPpk...',
+    '....kkkkkpppk...',
+    '...kggggggkkgk..',
+    '..kggggggggkgkk.',
+    'p.kgggggggggkgpk',
+    '.pkglllllgggGkk.',
+    '..kkGlllGGGGk...',
+    '...kkGkkkkGkk...',
+    '....kk...kk.....',
+  ],
+  cat: [
+    '................',
+    '..........k...k.',
+    '.kk......kok.kok',
+    'kOk......koooook',
+    'kok......koyoyok',
+    '.kok.....kocncok',
+    '..kokkkkkkocccok',
+    '...kooOooOooookk',
+    '...koOooOoooOok.',
+    '...kooOooOoooOk.',
+    '...koccccooooOk.',
+    '...kkccccoooOk..',
+    '....kOkkkkkkOk..',
+    '....kok....kok..',
+    '....kk.....kk...',
+    '................',
+  ],
+  cat2: [
+    '................',
+    '..........k...k.',
+    '.kk......kok.kok',
+    'kOk......koooook',
+    'kok......koyoyok',
+    '.kok.....kocncok',
+    '..kokkkkkkocccok',
+    '...kooOooOooookk',
+    '...koOooOoooOok.',
+    '...kooOooOoooOk.',
+    '...koccccooooOk.',
+    '...kkccccoooOk..',
+    '...kOkkkkkkkkOk.',
+    '..kok.......kok.',
+    '..kk.........kk.',
+    '................',
+  ],
+  cheese: [
+    '................',
+    '................',
+    '................',
+    '...........kk...',
+    '.........kkyyk..',
+    '.......kkyyyyk..',
+    '.....kkyyywyyk..',
+    '...kkyyyyyyyyk..',
+    '..kyyyyyyyyyyk..',
+    '..kYYYYYYYYYYk..',
+    '..kYhYYYYhhYYk..',
+    '..kYYYYYYhhYYk..',
+    '..kYYYhYYYYYhk..',
+    '..kYYYYYYYYYYk..',
+    '..kkkkkkkkkkkk..',
+    '................',
+  ],
+  chili: [
+    '................',
+    '..........kk....',
+    '.........kvk....',
+    '........kvvk....',
+    '.......kvvvvk...',
+    '......krkvvk....',
+    '.....krRrkk.....',
+    '....krRrrk......',
+    '...krRrrk.......',
+    '..krRrrrk.......',
+    '..krrrrk........',
+    '..krrrk.........',
+    '...krk..........',
+    '....k...........',
+    '................',
+    '................',
+  ],
+  yarn: [
+    '................',
+    '................',
+    '................',
+    '.....kkkkk......',
+    '....kbbBbbk.....',
+    '...kbBbbbBbk....',
+    '..kbbBbbBbbbk...',
+    '..kBbbBbbbBbk...',
+    '..kbBbbbBbbBk...',
+    '..kbbBbBbbBbk...',
+    '...kbBbbBbbk....',
+    '....kbbbBbk.k...',
+    '.....kkkkk.kbk..',
+    '............kbk.',
+    '.............k..',
+    '................',
+  ],
+  heart: [
+    '.kk...kk.',
+    'krrk.krrk',
+    'krwrkrrrk',
+    'krrrrrrrk',
+    '.krrrrrk.',
+    '..krrrk..',
+    '...krk...',
+    '....k....',
+  ],
+};
+
+const PAL = {
+  mouse: { k: OUT, g: '#aaa6be', G: '#7f7a97', l: '#e2def0', p: '#f596b4', P: '#c95f82', w: '#ffffff', e: OUT },
+  cheese: { k: '#3a1d08', y: '#ffe36b', Y: '#f7b52c', h: '#c07a12', w: '#fffbe0' },
+  gold: { k: '#3a1d08', y: '#fffbd0', Y: '#ffd23f', h: '#e39a00', w: '#ffffff' },
+  chili: { k: '#2a0a0a', r: '#e2362b', R: '#ff8a6a', v: '#5fc24a' },
+  yarn: { k: '#2b0f22', b: '#ff78b4', B: '#c7477f' },
+  heart: { k: '#2b0a12', r: '#ff4f64', w: '#ffc2cb' },
+};
+
+const CATS = [
+  { name: "ג'ינג'י", pal: { k: OUT, o: '#ee8a3c', O: '#b95a21', c: '#fde5c4', y: '#9be15d', n: '#f596b4' } },
+  { name: 'פחם', pal: { k: '#07050c', o: '#4a4166', O: '#352d4d', c: '#6e6590', y: '#ffd23f', n: '#f596b4' } },
+  { name: 'עשן', pal: { k: OUT, o: '#9aa3b5', O: '#6f7789', c: '#eceff5', y: '#5ec8e8', n: '#f596b4' } },
+  { name: 'מנומרת', pal: { k: OUT, o: '#f6eee0', O: '#dc7f2a', c: '#ffffff', y: '#7cc4ff', n: '#f596b4' } },
+];
+const DIZZY_PAL = { k: OUT, o: '#8fa6e6', O: '#6a80c4', c: '#d7e2ff', y: '#ffffff', n: '#f596b4' };
+
+function makeSprite(rows, pal) {
+  const w = Math.max(...rows.map((r) => r.length)), h = rows.length;
+  const [c, g] = newCanvas(w, h);
+  rows.forEach((r, y) => {
+    for (let x = 0; x < r.length; x++) {
+      const col = pal[r[x]];
+      if (!col) continue;
+      g.fillStyle = col;
+      g.fillRect(x, y, 1, 1);
+    }
+  });
+  return c;
+}
+function flip(src) {
+  const [c, g] = newCanvas(src.width, src.height);
+  g.translate(src.width, 0);
+  g.scale(-1, 1);
+  g.drawImage(src, 0, 0);
+  return c;
+}
+function pair(rows, pal) { const r = makeSprite(rows, pal); return { r, l: flip(r) }; }
+
+const S = {
+  mouse: [pair(SPR.mouse, PAL.mouse), pair(SPR.mouse2, PAL.mouse)],
+  mouseHit: pair(SPR.mouseHit, PAL.mouse),
+  cats: CATS.map((c) => [pair(SPR.cat, c.pal), pair(SPR.cat2, c.pal)]),
+  dizzy: [pair(SPR.cat, DIZZY_PAL), pair(SPR.cat2, DIZZY_PAL)],
+  cheese: makeSprite(SPR.cheese, PAL.cheese),
+  gold: makeSprite(SPR.cheese, PAL.gold),
+  chili: makeSprite(SPR.chili, PAL.chili),
+  yarn: makeSprite(SPR.yarn, PAL.yarn),
+  heart: makeSprite(SPR.heart, PAL.heart),
+};
+
+// ============================================================
+// Tiny pixel font for floating score numbers
+// ============================================================
+const GLYPH = {
+  0: '111101101101111', 1: '010110010010111', 2: '111001111100111', 3: '111001111001111',
+  4: '101101111001001', 5: '111100111001111', 6: '111100111101111', 7: '111001010010010',
+  8: '111101111101111', 9: '111101111001111', '+': '000010111010000', '!': '010010010000010',
+};
+function drawText(g, str, x, y, color) {
+  const chars = String(str).split('');
+  const pass = (col, ox, oy) => {
+    g.fillStyle = col;
+    chars.forEach((ch, i) => {
+      const bits = GLYPH[ch];
+      if (!bits) return;
+      for (let b = 0; b < 15; b++) if (bits[b] === '1') g.fillRect(x + i * 4 + (b % 3) + ox, y + Math.floor(b / 3) + oy, 1, 1);
+    });
+  };
+  pass(OUT, 1, 0); pass(OUT, -1, 0); pass(OUT, 0, 1); pass(OUT, 0, -1); pass(OUT, 1, 1);
+  pass(color, 0, 0);
+}
+const textWidth = (str) => String(str).length * 4 - 1;
+
+// ============================================================
+// Level state
+// ============================================================
+let grid = [], theme = THEMES[0], holes = [], floorTiles = [], catTiles = [];
+let doorTile = null, exitTile = null, homeTiles = [], mouseStart = null;
+let bg = null;
+
+const tileAt = (x, y) => (x < 0 || y < 0 || x >= COLS || y >= ROWS ? '#' : grid[y][x]);
+const isSolid = (x, y) => tileAt(x, y) === '#';
+const mouseCan = (x, y) => { const t = tileAt(x, y); return t === '.' || t === 'M' || t === 'H'; };
+function catCan(c, x, y) {
+  const t = tileAt(x, y);
+  if (t === '.' || t === 'M') return true;
+  return c.state === 'leaving' && (t === 'C' || t === 'D');
+}
+
+function loadMap(index) {
+  const src = MAPS[index % MAPS.length];
+  theme = THEMES[index % THEMES.length];
+  grid = src.map((r) => r.split(''));
+  holes = []; floorTiles = []; catTiles = []; homeTiles = [];
+  for (let y = 0; y < ROWS; y++) {
+    for (let x = 0; x < COLS; x++) {
+      const t = grid[y][x];
+      if (t === 'M') mouseStart = { x, y };
+      if (t === 'D') { doorTile = { x, y }; exitTile = { x, y: y - 1 }; }
+      if (t === 'C') homeTiles.push({ x, y });
+      if (t === 'H') holes.push({ x, y });
+      if (t === '.' || t === 'M') { floorTiles.push({ x, y }); catTiles.push({ x, y }); }
+    }
+  }
+  for (const h of holes) {
+    h.in = DIRS.find((d) => { const t = tileAt(h.x + d.x, h.y + d.y); return t === '.' || t === 'M'; });
+  }
+  for (let i = 0; i < holes.length; i += 2) {
+    if (holes[i + 1]) { holes[i].partner = holes[i + 1]; holes[i + 1].partner = holes[i]; }
+  }
+  // Cats spawn from the middle of the bed outward.
+  homeTiles.sort((a, b) => Math.abs(a.x - doorTile.x) - Math.abs(b.x - doorTile.x));
+  bg = renderBackground();
+}
+
+// ============================================================
+// Background rendering (static per level)
+// ============================================================
+function renderBackground() {
+  const [c, g] = newCanvas(W, H);
+  const th = theme;
+  const px = (col, x, y, w = 1, h = 1) => { g.fillStyle = col; g.fillRect(x, y, w, h); };
+  const isBorder = (x, y) => x === 0 || y === 0 || x === COLS - 1 || y === ROWS - 1;
+
+  function floor(tx, ty) {
+    const X = tx * T, Y = ty * T;
+    if (th.floor === 'check') {
+      px((tx + ty) % 2 ? th.floorA : th.floorB, X, Y, T, T);
+      px(th.grout, X + T - 1, Y, 1, T); px(th.grout, X, Y + T - 1, T, 1);
+      for (let i = 0; i < 3; i++) px(th.speck, X + Math.floor(hash(tx, ty, i) * 14) + 1, Y + Math.floor(hash(ty, tx, i + 7) * 14) + 1);
+    } else if (th.floor === 'carpet') {
+      px(th.floorA, X, Y, T, T);
+      for (let yy = 0; yy < T; yy++) for (let xx = 0; xx < T; xx++) {
+        const d = Math.abs(xx - 7.5) + Math.abs(yy - 7.5);
+        if (d > 6.5 && d < 7.6) px(th.floorB, X + xx, Y + yy);
+        if (d < 1.2) px(th.speck, X + xx, Y + yy);
+      }
+      for (let i = 0; i < 4; i++) px(th.grout, X + Math.floor(hash(tx, ty, i) * 16), Y + Math.floor(hash(ty, tx, i + 3) * 16));
+    } else {
+      px(th.floorA, X, Y, T, T);
+      px(th.speck, X, Y, T - 1, 1); px(th.speck, X, Y, 1, T - 1);
+      px(th.grout, X + T - 1, Y, 1, T); px(th.grout, X, Y + T - 1, T, 1);
+      px(th.floorB, X + 1, Y + T - 2, T - 2, 1);
+      if (hash(tx, ty, 9) > 0.6) {
+        let cx = X + 3 + Math.floor(hash(tx, ty, 1) * 8), cy = Y + 3;
+        for (let i = 0; i < 6; i++) { px(th.grout, cx, cy); cx += hash(tx, ty, i + 20) > 0.5 ? 1 : 0; cy++; }
+      }
+    }
+    // Soft shadows cast by furniture above and to the left.
+    if (isSolid(tx, ty - 1)) { g.fillStyle = 'rgba(8,5,18,0.38)'; g.fillRect(X, Y, T, 3); }
+    if (isSolid(tx - 1, ty)) { g.fillStyle = 'rgba(8,5,18,0.28)'; g.fillRect(X, Y + (isSolid(tx, ty - 1) ? 3 : 0), 2, T); }
+  }
+
+  function frontDetail(X, Y, tx, ty) {
+    // The front face is 6px tall: Y..Y+5.
+    if (th.detail === 'cabinet') {
+      px(th.frontLo, X, Y + 1, 1, 5);
+      px(th.trim, X + 7, Y + 2, 2, 1);
+      if (hash(tx, ty, 4) > 0.5) px(th.frontHi, X + 2, Y + 1, 12, 1);
+    } else if (th.detail === 'books') {
+      const colors = ['#c9463d', '#e0b33a', '#4d8fd1', '#6cbf6a', '#d77fb1', '#e8e0cc', '#8a63c9'];
+      let xx = 1;
+      while (xx < 15) {
+        const w = 1 + Math.floor(hash(tx * 31 + xx, ty, 2) * 2);
+        const hgt = 3 + Math.floor(hash(tx, ty * 17 + xx, 3) * 3);
+        if (hash(tx + xx, ty, 5) > 0.12) px(colors[Math.floor(hash(xx, tx + ty, 6) * colors.length)], X + xx, Y + 6 - hgt, Math.min(w, 15 - xx), hgt);
+        xx += w + (hash(tx, xx, 8) > 0.8 ? 1 : 0);
+      }
+      px(th.frontLo, X, Y + 5, T, 1);
+    } else {
+      const colors = ['#e2362b', '#f7b52c', '#9fd06a', '#f2ecd8', '#c77a3b'];
+      for (let j = 0; j < 3; j++) {
+        if (hash(tx, ty, j + 30) < 0.25) continue;
+        const jx = X + 1 + j * 5, col = colors[Math.floor(hash(tx + j, ty, 31) * colors.length)];
+        px(OUT, jx, Y + 1, 4, 5);
+        px(col, jx + 1, Y + 2, 2, 3);
+        px('#c8c3b0', jx, Y, 4, 1);
+      }
+    }
+  }
+
+  function wall(tx, ty) {
+    const X = tx * T, Y = ty * T;
+    if (isBorder(tx, ty)) {
+      if (ty === 0) {
+        // Back wall: wallpaper, baseboard, windows and a clock.
+        for (let i = 0; i < T; i++) px(i % 4 < 2 ? th.paper : th.paper2, X + i, Y, 1, T);
+        px(th.roomLo, X, Y, T, 2);
+        px(th.base, X, Y + 12, T, 4);
+        px(th.roomHi, X, Y + 12, T, 1);
+        px(OUT, X, Y + 15, T, 1);
+        if (tx === 4 || tx === 16) drawWindow(X, Y);
+        if (tx === 10) drawClock(X, Y);
+        return;
+      }
+      px(th.room, X, Y, T, T);
+      if (ty === ROWS - 1) px(th.roomHi, X, Y, T, 1);
+      if (tx === 0 && ty > 0 && ty < ROWS - 1) px(th.roomHi, X + T - 1, Y, 1, T);
+      if (tx === COLS - 1 && ty > 0 && ty < ROWS - 1) px(th.roomHi, X, Y, 1, T);
+      for (let i = 0; i < 2; i++) px(th.roomLo, X + Math.floor(hash(tx, ty, i) * 14) + 1, Y + Math.floor(hash(ty, tx, i) * 14) + 1);
+      return;
+    }
+    const open = (dx, dy) => !isSolid(tx + dx, ty + dy);
+    const hasFront = open(0, 1);
+    const topH = hasFront ? T - 6 : T;
+    px(th.top, X, Y, T, topH);
+    if (open(0, -1)) { px(OUT, X, Y, T, 1); px(th.topHi, X, Y + 1, T, 1); }
+    if (open(-1, 0)) { px(OUT, X, Y, 1, topH); px(th.topHi, X + 1, Y + (open(0, -1) ? 1 : 0), 1, topH - (open(0, -1) ? 1 : 0)); }
+    if (open(1, 0)) { px(OUT, X + T - 1, Y, 1, topH); px(th.topLo, X + T - 2, Y + (open(0, -1) ? 1 : 0), 1, topH - (open(0, -1) ? 1 : 0)); }
+    if (hash(tx, ty, 11) > 0.4) px(th.topHi, X + 3 + Math.floor(hash(tx, ty, 12) * 9), Y + 3 + Math.floor(hash(tx, ty, 13) * (topH - 6 > 0 ? topH - 6 : 1)), 2, 1);
+    if (hasFront) {
+      const FY = Y + T - 6;
+      px(th.topLo, X, FY - 1, T, 1);
+      px(th.front, X, FY, T, 6);
+      px(th.frontHi, X, FY, T, 1);
+      frontDetail(X, FY, tx, ty);
+      px(OUT, X, Y + T - 1, T, 1);
+      if (open(-1, 0)) px(OUT, X, FY, 1, 6);
+      if (open(1, 0)) px(OUT, X + T - 1, FY, 1, 6);
+    }
+  }
+
+  function drawWindow(X, Y) {
+    px(OUT, X + 1, Y + 2, 14, 10);
+    px('#1d2a5e', X + 2, Y + 3, 12, 8);
+    px('#2c3d7a', X + 2, Y + 3, 12, 3);
+    px('#ffffff', X + 4, Y + 8); px('#ffffff', X + 11, Y + 4); px('#c9d6ff', X + 7, Y + 9);
+    px('#fff4c2', X + 8, Y + 4, 3, 3); px('#1d2a5e', X + 9, Y + 4, 2, 2);
+    px(th.trim, X + 7, Y + 3, 1, 8); px(th.trim, X + 2, Y + 7, 12, 1);
+    px(th.base, X, Y + 11, T, 1);
+  }
+  function drawClock(X, Y) {
+    px(OUT, X + 4, Y + 2, 8, 9); px(OUT, X + 3, Y + 3, 10, 7);
+    px('#f2ecd8', X + 5, Y + 3, 6, 7); px('#f2ecd8', X + 4, Y + 4, 8, 5);
+    px(OUT, X + 7, Y + 4, 1, 3); px(OUT, X + 8, Y + 6, 2, 1);
+    px('#e2362b', X + 7, Y + 6);
+  }
+
+  function hole(tx, ty) {
+    const X = tx * T, Y = ty * T;
+    const inward = holes.find((h) => h.x === tx && h.y === ty).in;
+    px(th.room, X, Y, T, T);
+    // Arch opening facing the room.
+    const [hc, hg] = newCanvas(T, T);
+    const hp = (col, x, y, w = 1, h = 1) => { hg.fillStyle = col; hg.fillRect(x, y, w, h); };
+    hp(th.base, 3, 2, 13, 12);
+    hp(th.base, 5, 1, 11, 14);
+    hp('#08050f', 5, 3, 11, 10);
+    hp('#08050f', 7, 2, 9, 12);
+    hp('#1a1030', 6, 11, 10, 2);
+    hp(th.trim, 4, 3, 1, 10);
+    hp(th.trim, 6, 1, 2, 1);
+    hp(th.trim, 5, 2, 1, 1);
+    hp(th.trim, 5, 13, 1, 1);
+    hp(th.trim, 6, 14, 2, 1);
+    g.save();
+    g.translate(X + T / 2, Y + T / 2);
+    g.rotate(Math.atan2(inward.y, inward.x)); // art opens toward +x
+    g.drawImage(hc, -T / 2, -T / 2);
+    g.restore();
+  }
+
+  function bed(tx, ty) {
+    const X = tx * T, Y = ty * T;
+    px('#6b2a3a', X, Y, T, T);
+    for (let i = 0; i < T; i += 4) { px('#7f3446', X + i, Y, 2, T); px('#7f3446', X, Y + i, T, 2); }
+    for (let i = 0; i < T; i += 8) px('#a44a5e', X + i + 2, Y + 2, 1, T - 4);
+    if (isSolid(tx, ty - 1)) { g.fillStyle = 'rgba(8,5,18,0.35)'; g.fillRect(X, Y, T, 3); }
+    if (isSolid(tx - 1, ty)) px('#4a1c28', X, Y, 1, T);
+    if (isSolid(tx + 1, ty)) px('#4a1c28', X + T - 1, Y, 1, T);
+  }
+  function door(tx, ty) {
+    const X = tx * T, Y = ty * T;
+    floor(tx, ty);
+    px(OUT, X, Y + 6, T, 4);
+    for (let i = 1; i < T; i += 3) px('#f596b4', X + i, Y + 7, 2, 2);
+  }
+
+  for (let y = 0; y < ROWS; y++) {
+    for (let x = 0; x < COLS; x++) {
+      const t = grid[y][x];
+      if (t === '#') wall(x, y);
+      else if (t === 'H') hole(x, y);
+      else if (t === 'C') bed(x, y);
+      else if (t === 'D') door(x, y);
+      else floor(x, y);
+    }
+  }
+  return c;
+}
+
+// ============================================================
+// Game state
+// ============================================================
+const game = {
+  state: 'title', // title | ready | play | dying | clear | paused | over
+  prevState: null,
+  level: 1, score: 0, lives: 3, best: 0,
+  got: 0, goal: 8,
+  roundTime: 0, stateTime: 0,
+  mode: 'scatter', modeTime: 0,
+  itemTimer: 10,
+  nextLifeAt: 1500,
+  shake: 0,
+  time: 0,
+};
+let mouse = null, cats = [], cheeses = [], item = null, particles = [], floaters = [];
+const input = { want: null };
+
+function levelParams(level) {
+  const L = level - 1;
+  return {
+    cats: Math.min(4, 2 + L),
+    catSpeed: Math.min(4.85, 3.55 + 0.22 * L),
+    mouseSpeed: 5.2,
+    goal: Math.min(20, 8 + 2 * L),
+    chase: 13 + Math.min(L, 8),
+    scatter: Math.max(2.5, 6 - 0.5 * L),
+    dizzy: Math.max(3.5, 7 - 0.5 * L),
+  };
+}
+let P = levelParams(1);
+
+function makeMouse() {
+  return { tx: mouseStart.x, ty: mouseStart.y, dx: 0, dy: 0, p: 0, face: 1, anim: 0, invuln: 0, boost: 0, lastDir: DIRS[3] };
+}
+function makeCat(kind, i) {
+  const home = homeTiles[i % homeTiles.length];
+  return {
+    kind, tx: home.x, ty: home.y, dx: 0, dy: 0, p: 0, face: i % 2 ? 1 : -1, anim: Math.random() * 2,
+    state: 'home', releaseAt: 0.6 + i * 2.4, dizzy: 0, mult: kind === 3 ? 1.04 : 1,
+  };
+}
+const posOf = (e) => ({ x: e.tx + e.dx * e.p, y: e.ty + e.dy * e.p });
+const tileOf = (e) => (e.p < 0.5 ? { x: e.tx, y: e.ty } : { x: e.tx + e.dx, y: e.ty + e.dy });
+
+function newGame() {
+  game.level = 1; game.score = 0; game.lives = 3; game.nextLifeAt = 1500;
+  startLevel();
+}
+function startLevel() {
+  P = levelParams(game.level);
+  loadMap(game.level - 1);
+  game.got = 0; game.goal = P.goal;
+  cheeses = []; item = null; particles = []; floaters = [];
+  game.itemTimer = rand(8, 12);
+  resetRound();
+  for (let i = 0; i < 3; i++) spawnCheese();
+  toast(`שלב ${game.level} · ${theme.name}`);
+  updateHud(true);
+}
+function resetRound() {
+  mouse = makeMouse();
+  cats = [];
+  for (let i = 0; i < P.cats; i++) cats.push(makeCat(i, i));
+  input.want = null;
+  game.roundTime = 0;
+  game.mode = 'scatter'; game.modeTime = P.scatter;
+  setState('ready');
+}
+function setState(s) { game.state = s; game.stateTime = 0; }
+
+// ============================================================
+// Pathfinding
+// ============================================================
+const distBuf = new Int16Array(COLS * ROWS);
+const queue = new Int16Array(COLS * ROWS);
+function distanceField(gx, gy, walk) {
+  distBuf.fill(-1);
+  let head = 0, tail = 0;
+  distBuf[gy * COLS + gx] = 0;
+  queue[tail++] = gy * COLS + gx;
+  while (head < tail) {
+    const i = queue[head++], x = i % COLS, y = (i - x) / COLS;
+    for (const d of DIRS) {
+      const nx = x + d.x, ny = y + d.y;
+      if (nx < 0 || ny < 0 || nx >= COLS || ny >= ROWS) continue;
+      const j = ny * COLS + nx;
+      if (distBuf[j] !== -1 || !walk(nx, ny)) continue;
+      distBuf[j] = distBuf[i] + 1;
+      queue[tail++] = j;
+    }
+  }
+  return distBuf;
+}
+function nearestTile(x, y, list) {
+  let best = list[0], bd = Infinity;
+  for (const t of list) { const d = (t.x - x) ** 2 + (t.y - y) ** 2; if (d < bd) { bd = d; best = t; } }
+  return best;
+}
+const CORNERS = [{ x: COLS - 2, y: 1 }, { x: 1, y: 1 }, { x: COLS - 2, y: ROWS - 2 }, { x: 1, y: ROWS - 2 }];
+
+function catTarget(c) {
+  if (c.state === 'leaving') return exitTile;
+  if (game.mode === 'scatter') return CORNERS[c.kind % 4];
+  const m = tileOf(mouse), d = mouse.dx || mouse.dy ? { x: mouse.dx, y: mouse.dy } : mouse.lastDir;
+  switch (c.kind) {
+    case 1: return { x: m.x + d.x * 4, y: m.y + d.y * 4 }; // ambush ahead of the mouse
+    case 2: { // chases from afar, wanders off when close
+      const ct = tileOf(c);
+      return Math.hypot(ct.x - m.x, ct.y - m.y) > 6 ? m : CORNERS[2];
+    }
+    case 3: { // pincer with the first cat
+      const lead = cats[0] ? tileOf(cats[0]) : m;
+      const a = { x: m.x + d.x * 2, y: m.y + d.y * 2 };
+      return { x: a.x * 2 - lead.x, y: a.y * 2 - lead.y };
+    }
+    default: return m;
+  }
+}
+
+function decideCat(c) {
+  const opts = [];
+  const moving = c.dx || c.dy;
+  for (const d of DIRS) {
+    if (moving && d.x === -c.dx && d.y === -c.dy) continue;
+    if (catCan(c, c.tx + d.x, c.ty + d.y)) opts.push(d);
+  }
+  if (!opts.length && moving && catCan(c, c.tx - c.dx, c.ty - c.dy)) opts.push({ x: -c.dx, y: -c.dy });
+  if (!opts.length) { c.dx = 0; c.dy = 0; return; }
+  let choice;
+  if (c.dizzy > 0 && c.state === 'out') {
+    choice = pick(opts);
+  } else {
+    let tgt = catTarget(c);
+    const walk = (x, y) => catCan(c, x, y);
+    if (!walk(tgt.x, tgt.y)) tgt = nearestTile(tgt.x, tgt.y, catTiles);
+    const field = distanceField(tgt.x, tgt.y, walk);
+    let best = Infinity, ties = [];
+    for (const d of opts) {
+      const v = field[(c.ty + d.y) * COLS + c.tx + d.x];
+      const score = v < 0 ? 9999 : v;
+      if (score < best) { best = score; ties = [d]; } else if (score === best) ties.push(d);
+    }
+    choice = pick(ties);
+    if (c.kind === 2 && c.state === 'out' && Math.random() < 0.12) choice = pick(opts);
+  }
+  c.dx = choice.x; c.dy = choice.y;
+}
+
+// ============================================================
+// Spawning
+// ============================================================
+function freeTile(minFromMouse) {
+  const m = tileOf(mouse);
+  const field = distanceField(m.x, m.y, mouseCan).slice();
+  const taken = (t) => cheeses.some((c) => c.x === t.x && c.y === t.y) || (item && item.x === t.x && item.y === t.y);
+  const nearCat = (t) => cats.some((c) => { const p = posOf(c); return Math.abs(p.x - t.x) + Math.abs(p.y - t.y) < 3; });
+  let pool = floorTiles.filter((t) => field[t.y * COLS + t.x] >= minFromMouse && !taken(t) && !nearCat(t));
+  if (!pool.length) pool = floorTiles.filter((t) => !taken(t) && !(t.x === m.x && t.y === m.y));
+  return pick(pool);
+}
+function spawnCheese() {
+  const t = freeTile(6);
+  if (t) cheeses.push({ x: t.x, y: t.y, phase: Math.random() * 6, born: game.time });
+}
+function spawnItem() {
+  const r = Math.random();
+  const type = r < 0.38 ? 'chili' : r < 0.74 ? 'yarn' : 'gold';
+  const t = freeTile(5);
+  if (t) item = { type, x: t.x, y: t.y, life: 8.5, phase: 0 };
+}
+
+// ============================================================
+// Update
+// ============================================================
+function updateMouse(dt) {
+  const m = mouse;
+  if (m.boost > 0) m.boost -= dt;
+  if (m.invuln > 0) m.invuln -= dt;
+  const want = input.want;
+  const speed = P.mouseSpeed * (m.boost > 0 ? 1.5 : 1);
+
+  if (!m.dx && !m.dy) {
+    if (want && mouseCan(m.tx + want.x, m.ty + want.y)) { m.dx = want.x; m.dy = want.y; m.p = 0; }
+    else { m.anim = 0; return; }
+  } else if (want && (want.x !== m.dx || want.y !== m.dy)) {
+    if (want.x === -m.dx && want.y === -m.dy) {
+      if (m.p > 0) { m.tx += m.dx; m.ty += m.dy; m.p = 1 - m.p; m.dx = want.x; m.dy = want.y; }
+      else if (mouseCan(m.tx + want.x, m.ty + want.y)) { m.dx = want.x; m.dy = want.y; }
+    } else if (m.p < 0.22 && mouseCan(m.tx + want.x, m.ty + want.y)) {
+      m.dx = want.x; m.dy = want.y; m.p = 0;
+    }
+  }
+
+  let move = speed * dt;
+  while (move > 0 && (m.dx || m.dy)) {
+    const rem = 1 - m.p;
+    if (move < rem) { m.p += move; break; }
+    move -= rem;
+    m.tx += m.dx; m.ty += m.dy; m.p = 0;
+    if (tileAt(m.tx, m.ty) === 'H') {
+      const h = holes.find((o) => o.x === m.tx && o.y === m.ty);
+      if (h && h.partner) {
+        burst(m.tx + 0.5, m.ty + 0.5, ['#6b4a2e', '#2a1e40', '#aaa6be'], 6);
+        m.tx = h.partner.x; m.ty = h.partner.y; m.dx = h.partner.in.x; m.dy = h.partner.in.y;
+        burst(m.tx + 0.5, m.ty + 0.5, ['#6b4a2e', '#2a1e40', '#aaa6be'], 6);
+        sfx.hole();
+        continue;
+      }
+    }
+    const w = input.want;
+    if (w && mouseCan(m.tx + w.x, m.ty + w.y)) { m.dx = w.x; m.dy = w.y; }
+    else if (!mouseCan(m.tx + m.dx, m.ty + m.dy)) { m.dx = 0; m.dy = 0; }
+  }
+  if (m.dx) m.face = m.dx;
+  if (m.dx || m.dy) { m.lastDir = { x: m.dx, y: m.dy }; m.anim += dt * (m.boost > 0 ? 16 : 11); }
+  if (m.boost > 0 && (m.dx || m.dy) && Math.random() < dt * 30) {
+    const p = posOf(m);
+    particles.push({ x: p.x + 0.5 - m.dx * 0.4, y: p.y + 0.75, vx: -m.dx * rand(1, 3) + rand(-1, 1), vy: rand(-3, -1), life: 0.35, max: 0.35, color: pick(['#ff5a2a', '#ffb13b', '#ffe36b']) });
+  }
+}
+
+function updateCat(c, dt) {
+  c.anim += dt * 8;
+  if (c.state === 'home') {
+    if (game.roundTime >= c.releaseAt) { c.state = 'leaving'; decideCat(c); }
+    else return;
+  }
+  if (c.dizzy > 0) c.dizzy -= dt;
+  const speed = P.catSpeed * c.mult * (c.dizzy > 0 ? 0.55 : 1) * (c.state === 'leaving' ? 0.7 : 1);
+  if (!c.dx && !c.dy) { decideCat(c); if (!c.dx && !c.dy) return; }
+  let move = speed * dt;
+  while (move > 0) {
+    const rem = 1 - c.p;
+    if (move < rem) { c.p += move; break; }
+    move -= rem;
+    c.tx += c.dx; c.ty += c.dy; c.p = 0;
+    if (c.state === 'leaving' && c.tx === exitTile.x && c.ty === exitTile.y) c.state = 'out';
+    decideCat(c);
+    if (!c.dx && !c.dy) break;
+  }
+  if (c.dx) c.face = c.dx;
+}
+
+function collect() {
+  const mp = posOf(mouse);
+  for (let i = cheeses.length - 1; i >= 0; i--) {
+    const c = cheeses[i];
+    if (Math.abs(mp.x - c.x) + Math.abs(mp.y - c.y) < 0.6) {
+      cheeses.splice(i, 1);
+      const pts = 10 * game.level;
+      addScore(pts);
+      game.got++;
+      floaters.push({ x: c.x + 0.5, y: c.y, text: '+' + pts, color: '#ffe36b', t: 0 });
+      burst(c.x + 0.5, c.y + 0.55, ['#ffe36b', '#f7b52c', '#fff6c0'], 10);
+      sfx.cheese();
+      if (game.got >= game.goal) { levelClear(); return; }
+      spawnCheese();
+    }
+  }
+  if (item && Math.abs(mp.x - item.x) + Math.abs(mp.y - item.y) < 0.6) {
+    const it = item; item = null;
+    game.itemTimer = rand(9, 14);
+    if (it.type === 'gold') {
+      const pts = 50 * game.level;
+      addScore(pts);
+      game.got++;
+      floaters.push({ x: it.x + 0.5, y: it.y, text: '+' + pts, color: '#fffbd0', t: 0 });
+      burst(it.x + 0.5, it.y + 0.5, ['#ffd23f', '#ffffff', '#ffe36b'], 18);
+      sfx.gold();
+      toast('גבינת זהב!');
+      if (game.got >= game.goal) { levelClear(); return; }
+    } else if (it.type === 'chili') {
+      mouse.boost = 5;
+      burst(it.x + 0.5, it.y + 0.5, ['#ff5a2a', '#ffb13b', '#e2362b'], 14);
+      sfx.chili();
+      toast('פלפל חריף! רוצו מהר', 'hot');
+    } else {
+      for (const c of cats) {
+        if (c.state !== 'out') continue;
+        c.dizzy = P.dizzy;
+        if (c.p > 0) { c.tx += c.dx; c.ty += c.dy; c.p = 1 - c.p; c.dx = -c.dx; c.dy = -c.dy; }
+      }
+      burst(it.x + 0.5, it.y + 0.5, ['#ff78b4', '#c7477f', '#ffd0e4'], 14);
+      sfx.yarn();
+      toast('החתולים מתבלבלים!', 'cold');
+    }
+    updateHud();
+  }
+}
+
+function addScore(pts) {
+  game.score += pts;
+  if (game.score >= game.nextLifeAt) {
+    game.nextLifeAt += 3000;
+    if (game.lives < 5) { game.lives++; sfx.life(); toast('קיבלתם חיים נוספים!'); }
+  }
+  updateHud();
+}
+
+function checkCatch() {
+  if (mouse.invuln > 0) return;
+  const mp = posOf(mouse);
+  for (const c of cats) {
+    if (c.state === 'home' || c.dizzy > 0) continue;
+    const cp = posOf(c);
+    if (Math.abs(mp.x - cp.x) < 0.62 && Math.abs(mp.y - cp.y) < 0.62) {
+      caught(c);
+      return;
+    }
+  }
+}
+
+function caught(cat) {
+  setState('dying');
+  cat.pounce = true;
+  game.shake = reduceMotion ? 0 : 0.35;
+  const mp = posOf(mouse);
+  burst(mp.x + 0.5, mp.y + 0.5, ['#ffffff', '#aaa6be', '#f596b4'], 16);
+  sfx.caught();
+}
+
+function levelClear() {
+  setState('clear');
+  const bonus = 100 * game.level;
+  game.score += bonus;
+  if (game.score >= game.nextLifeAt) { game.nextLifeAt += 3000; if (game.lives < 5) game.lives++; }
+  const mp = posOf(mouse);
+  floaters.push({ x: mp.x + 0.5, y: mp.y - 0.4, text: '+' + bonus, color: '#9be15d', t: 0 });
+  for (let i = 0; i < 4; i++) burst(rand(3, COLS - 3), rand(2, ROWS - 3), ['#ffe36b', '#f7b52c', '#ffffff', '#9be15d'], 12);
+  sfx.clear();
+  toast(`${theme.name} ריק מגבינה! בונוס ${bonus}`);
+  updateHud();
+}
+
+function gameOver() {
+  setState('over');
+  const record = game.score > game.best;
+  if (record) { game.best = game.score; store.set('cheese-run-best', game.best); }
+  $('finalScore').textContent = game.score;
+  $('finalLevel').textContent = game.level;
+  $('finalBest').textContent = game.best;
+  $('bestTitle').textContent = game.best;
+  $('overNote').textContent = record && game.score > 0 ? 'שיא חדש! החתולים עדיין רעבים.' : `נאספו ${game.got} גבינות בשלב האחרון.`;
+  showScreen('overScreen');
+  sfx.over();
+}
+
+function update(dt) {
+  game.time += dt;
+  game.stateTime += dt;
+  if (game.shake > 0) game.shake -= dt;
+  updateEffects(dt);
+
+  switch (game.state) {
+    case 'title':
+      for (const c of cats) c.anim += dt * 4;
+      return;
+    case 'ready':
+      for (const c of cats) c.anim += dt * 4;
+      if (game.stateTime > 1.3) setState('play');
+      return;
+    case 'play': {
+      game.roundTime += dt;
+      game.modeTime -= dt;
+      if (game.modeTime <= 0) {
+        game.mode = game.mode === 'scatter' ? 'chase' : 'scatter';
+        game.modeTime = game.mode === 'chase' ? P.chase : P.scatter;
+      }
+      updateMouse(dt);
+      for (const c of cats) updateCat(c, dt);
+      collect();
+      if (game.state !== 'play') return;
+      checkCatch();
+      if (game.state !== 'play') return;
+      for (const ch of cheeses) ch.phase += dt;
+      if (item) {
+        item.life -= dt; item.phase += dt;
+        if (item.life <= 0) { item = null; game.itemTimer = rand(8, 13); }
+      } else {
+        game.itemTimer -= dt;
+        if (game.itemTimer <= 0) { spawnItem(); game.itemTimer = rand(9, 14); }
+      }
+      return;
+    }
+    case 'dying':
+      if (game.stateTime > 1.6) {
+        game.lives--;
+        updateHud();
+        if (game.lives <= 0) { gameOver(); return; }
+        resetRound();
+        mouse.invuln = 1.5;
+        toast(game.lives === 1 ? 'נשארו חיים אחרונים!' : `נשארו ${game.lives} חיים`);
+      }
+      return;
+    case 'clear':
+      if (game.stateTime > 2.6) { game.level++; startLevel(); }
+      return;
+    default:
+      return;
+  }
+}
+
+function updateEffects(dt) {
+  for (let i = particles.length - 1; i >= 0; i--) {
+    const p = particles[i];
+    p.life -= dt;
+    if (p.life <= 0) { particles.splice(i, 1); continue; }
+    p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 9 * dt;
+  }
+  for (let i = floaters.length - 1; i >= 0; i--) {
+    floaters[i].t += dt;
+    if (floaters[i].t > 1) floaters.splice(i, 1);
+  }
+}
+
+function burst(x, y, colors, n) {
+  if (reduceMotion) n = Math.ceil(n / 3);
+  for (let i = 0; i < n; i++) {
+    const a = Math.random() * Math.PI * 2, s = rand(2, 6);
+    particles.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s - 3, life: rand(0.3, 0.7), max: 0.7, color: pick(colors) });
+  }
+}
+
+// ============================================================
+// Render
+// ============================================================
+function drawShadow(x, y, w) {
+  ctx.fillStyle = 'rgba(6,4,14,0.45)';
+  ctx.fillRect(x + (T - w) / 2, y + 14, w, 2);
+  ctx.fillRect(x + (T - w) / 2 + 1, y + 13, w - 2, 1);
+}
+
+function render() {
+  ctx.save();
+  if (game.shake > 0) ctx.translate(Math.round(rand(-2, 2)), Math.round(rand(-2, 2)));
+  ctx.drawImage(bg, 0, 0);
+
+  const t = game.time;
+  // Cheese
+  for (const c of cheeses) {
+    const X = c.x * T, Y = c.y * T;
+    const bob = Math.round(Math.sin(c.phase * 3.2) * 1);
+    const age = t - c.born;
+    if (age < 0.25 && Math.floor(age * 20) % 2) continue;
+    drawShadow(X, Y, 10);
+    ctx.drawImage(S.cheese, X, Y - 2 + bob);
+    if (Math.floor((t + c.phase) * 2) % 5 === 0) { ctx.fillStyle = '#ffffff'; ctx.fillRect(X + 10, Y + 3 + bob, 1, 1); }
+  }
+  // Power-up
+  if (item && !(item.life < 2 && Math.floor(item.life * 8) % 2)) {
+    const X = item.x * T, Y = item.y * T, bob = Math.round(Math.sin(item.phase * 4) * 1.4);
+    drawShadow(X, Y, 10);
+    const spr = item.type === 'gold' ? S.gold : item.type === 'chili' ? S.chili : S.yarn;
+    ctx.drawImage(spr, X, Y - 3 + bob);
+    if (item.type === 'gold') {
+      const s = Math.floor(item.phase * 6) % 4;
+      ctx.fillStyle = '#ffffff';
+      const sx = [2, 13, 12, 3][s], sy = [4, 2, 12, 11][s];
+      ctx.fillRect(X + sx, Y + sy - 1, 1, 3); ctx.fillRect(X + sx - 1, Y + sy, 3, 1);
+    }
+  }
+
+  // Characters, sorted by depth
+  const ents = cats.map((c) => ({ e: c, cat: true, y: posOf(c).y }));
+  if (mouse) ents.push({ e: mouse, cat: false, y: posOf(mouse).y });
+  ents.sort((a, b) => a.y - b.y);
+  for (const it of ents) (it.cat ? drawCat(it.e) : drawMouse(it.e));
+
+  // Danger mark over the mouse when a hunting cat is close
+  if (mouse && game.state === 'play') {
+    const mp = posOf(mouse);
+    const near = cats.some((c) => c.state !== 'home' && c.dizzy <= 0 && Math.hypot(posOf(c).x - mp.x, posOf(c).y - mp.y) < 3.2);
+    if (near && Math.floor(t * 6) % 2 === 0) drawText(ctx, '!', Math.round(mp.x * T) + 9, Math.round(mp.y * T) - 3, '#ff5d6c');
+  }
+
+  for (const p of particles) {
+    ctx.fillStyle = p.color;
+    ctx.fillRect(Math.round(p.x * T), Math.round(p.y * T), 1, 1);
+    if (p.life > p.max * 0.5) ctx.fillRect(Math.round(p.x * T) + 1, Math.round(p.y * T), 1, 1);
+  }
+  for (const f of floaters) {
+    const x = Math.round(f.x * T - textWidth(f.text) / 2), y = Math.round(f.y * T - f.t * 14);
+    if (f.t < 0.8 || Math.floor(f.t * 20) % 2) drawText(ctx, f.text, x, y, f.color);
+  }
+
+  // Chili timer ring and dizzy countdown bar
+  if (mouse && mouse.boost > 0 && game.state === 'play') {
+    const mp = posOf(mouse), w = Math.ceil(12 * mouse.boost / 5);
+    ctx.fillStyle = OUT; ctx.fillRect(Math.round(mp.x * T) + 1, Math.round(mp.y * T) + 16, 14, 3);
+    ctx.fillStyle = '#ff8a3a'; ctx.fillRect(Math.round(mp.x * T) + 2, Math.round(mp.y * T) + 17, w, 1);
+  }
+
+  if (game.state === 'clear') {
+    ctx.fillStyle = `rgba(255, 226, 107, ${0.12 + 0.08 * Math.sin(game.stateTime * 10)})`;
+    ctx.fillRect(0, 0, W, H);
+  }
+  ctx.restore();
+}
+
+function drawMouse(m) {
+  const p = posOf(m);
+  const X = Math.round(p.x * T), Y = Math.round(p.y * T);
+  if (m.invuln > 0 && Math.floor(m.invuln * 12) % 2) return;
+  const side = m.face < 0 ? 'l' : 'r';
+  const moving = (m.dx || m.dy) && game.state === 'play';
+  let spr;
+  if (game.state === 'dying') spr = S.mouseHit[side];
+  else spr = S.mouse[moving ? Math.floor(m.anim) % 2 : 0][side];
+  const bob = moving && m.dy && Math.floor(m.anim) % 2 ? -1 : 0;
+  drawShadow(X, Y, 10);
+  let dy = 0;
+  if (game.state === 'dying') dy = -Math.round(Math.sin(Math.min(game.stateTime, 0.6) / 0.6 * Math.PI) * 5);
+  ctx.drawImage(spr, X, Y - 1 + bob + dy);
+  if (game.state === 'dying') {
+    for (let i = 0; i < 3; i++) {
+      const a = game.time * 7 + i * 2.1;
+      ctx.fillStyle = i === 1 ? '#ffffff' : '#ffe36b';
+      ctx.fillRect(X + 8 + Math.round(Math.cos(a) * 6), Y + 1 + Math.round(Math.sin(a) * 2) + dy, 1, 1);
+    }
+  }
+  if (game.state === 'clear') {
+    ctx.drawImage(S.cheese, X, Y - 14 - Math.round(Math.abs(Math.sin(game.stateTime * 6)) * 3));
+  }
+}
+
+function drawCat(c) {
+  const p = posOf(c);
+  const X = Math.round(p.x * T), Y = Math.round(p.y * T);
+  const side = c.face < 0 ? 'l' : 'r';
+  const moving = c.state !== 'home' && (c.dx || c.dy) && game.state === 'play';
+  const frame = moving ? Math.floor(c.anim) % 2 : 0;
+  const dizzy = c.dizzy > 0 && !(c.dizzy < 1.5 && Math.floor(c.dizzy * 8) % 2);
+  const set = dizzy ? S.dizzy : S.cats[c.kind % S.cats.length];
+  let bob = 0;
+  if (!moving) bob = Math.floor(c.anim) % 4 === 0 ? -1 : 0;
+  if (game.state === 'dying' && c.pounce) bob = -Math.round(Math.abs(Math.sin(game.stateTime * 9)) * 2);
+  drawShadow(X, Y, 12);
+  ctx.drawImage(set[frame][side], X, Y - 1 + bob);
+  if (c.dizzy > 0) {
+    for (let i = 0; i < 2; i++) {
+      const a = game.time * 6 + i * Math.PI;
+      const sx = X + 8 + Math.round(Math.cos(a) * 6), sy = Y - 1 + Math.round(Math.sin(a) * 2);
+      ctx.fillStyle = '#ffe36b';
+      ctx.fillRect(sx, sy - 1, 1, 3); ctx.fillRect(sx - 1, sy, 3, 1);
+    }
+  }
+}
+
+// ============================================================
+// HUD, overlay, toast
+// ============================================================
+const hudCache = {};
+function updateHud(force) {
+  const set = (id, v) => { if (force || hudCache[id] !== v) { hudCache[id] = v; $(id).textContent = v; } };
+  set('score', String(game.score));
+  set('level', String(game.level));
+  set('goalText', `${Math.min(game.got, game.goal)}/${game.goal}`);
+  const pct = Math.min(100, (game.got / game.goal) * 100);
+  if (force || hudCache.pct !== pct) {
+    hudCache.pct = pct;
+    $('bar').style.width = pct + '%';
+    const wrap = $('barWrap');
+    wrap.setAttribute('aria-valuemax', String(game.goal));
+    wrap.setAttribute('aria-valuenow', String(Math.min(game.got, game.goal)));
+  }
+  if (force || hudCache.lives !== game.lives) {
+    hudCache.lives = game.lives;
+    const el = $('lives');
+    el.replaceChildren();
+    el.setAttribute('aria-label', `${game.lives} חיים`);
+    for (let i = 0; i < game.lives; i++) { const img = new Image(); img.src = ICONS.heart; img.alt = ''; el.appendChild(img); }
+  }
+}
+
+let toastTimer = 0;
+function toast(msg, kind) {
+  const el = $('toast');
+  el.textContent = msg;
+  el.className = 'toast show' + (kind ? ' ' + kind : '');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { el.className = 'toast' + (kind ? ' ' + kind : ''); }, 1700);
+}
+
+function showScreen(id) {
+  $('overlay').hidden = !id;
+  for (const s of ['titleScreen', 'pauseScreen', 'overScreen']) $(s).hidden = s !== id;
+  const btn = id && $(id).querySelector('.btn');
+  if (btn) btn.focus({ preventScroll: true });
+}
+
+function pause() {
+  if (!['play', 'ready', 'dying', 'clear'].includes(game.state)) return;
+  game.prevState = game.state;
+  game.state = 'paused';
+  showScreen('pauseScreen');
+}
+function resume() {
+  if (game.state !== 'paused') return;
+  game.state = game.prevState || 'play';
+  showScreen(null);
+}
+function togglePause() { game.state === 'paused' ? resume() : pause(); }
+
+// ============================================================
+// Icons for the HUD and legend, drawn from the sprites
+// ============================================================
+function iconURL(draw, w, h) {
+  const [c, g] = newCanvas(w, h);
+  draw(g);
+  return c.toDataURL();
+}
+const ICONS = {
+  heart: iconURL((g) => g.drawImage(S.heart, 0, 0), 9, 8),
+  cheese: iconURL((g) => g.drawImage(S.cheese, 0, -2), 16, 16),
+  gold: iconURL((g) => g.drawImage(S.gold, 0, -2), 16, 16),
+  chili: iconURL((g) => g.drawImage(S.chili, 0, 0), 16, 16),
+  yarn: iconURL((g) => g.drawImage(S.yarn, 0, -1), 16, 16),
+  hole: iconURL((g) => {
+    g.fillStyle = '#6b4a2e'; g.fillRect(2, 3, 12, 12); g.fillRect(4, 1, 8, 14);
+    g.fillStyle = '#08050f'; g.fillRect(4, 4, 8, 11); g.fillRect(5, 3, 6, 12);
+    g.fillStyle = '#f0cf86'; g.fillRect(3, 4, 1, 11); g.fillRect(12, 4, 1, 11); g.fillRect(5, 2, 6, 1);
+  }, 16, 16),
+};
+document.querySelectorAll('img[data-icon]').forEach((img) => { img.src = ICONS[img.dataset.icon]; });
+const roll = $('catRoll');
+CATS.forEach((c, i) => {
+  const span = document.createElement('span');
+  const img = new Image();
+  img.src = iconURL((g) => g.drawImage(S.cats[i][0].l, 0, 0), 16, 16);
+  img.alt = '';
+  span.append(img, c.name);
+  roll.appendChild(span);
+});
+
+// ============================================================
+// Sound (tiny WebAudio synth, starts on first button press)
+// ============================================================
+let actx = null;
+let muted = !!store.get('cheese-run-muted', false);
+function audio() {
+  if (!actx) {
+    try { actx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { actx = null; }
+  }
+  if (actx && actx.state === 'suspended') actx.resume().catch(() => {});
+  return actx;
+}
+function tone(freq, dur, opts = {}) {
+  if (muted || !actx) return;
+  const { type = 'square', vol = 0.06, to = null, delay = 0, vib = 0 } = opts;
+  const t0 = actx.currentTime + delay;
+  const o = actx.createOscillator(), g = actx.createGain();
+  o.type = type;
+  o.frequency.setValueAtTime(freq, t0);
+  if (to) o.frequency.exponentialRampToValueAtTime(to, t0 + dur);
+  if (vib) {
+    const l = actx.createOscillator(), lg = actx.createGain();
+    l.frequency.value = 18; lg.gain.value = vib;
+    l.connect(lg); lg.connect(o.frequency);
+    l.start(t0); l.stop(t0 + dur);
+  }
+  g.gain.setValueAtTime(0.0001, t0);
+  g.gain.exponentialRampToValueAtTime(vol, t0 + 0.01);
+  g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+  o.connect(g); g.connect(actx.destination);
+  o.start(t0); o.stop(t0 + dur + 0.02);
+}
+const sfx = {
+  cheese() { tone(988, 0.06); tone(1480, 0.08, { delay: 0.055 }); },
+  gold() { [784, 988, 1175, 1568].forEach((f, i) => tone(f, 0.09, { delay: i * 0.06, vol: 0.05 })); },
+  chili() { tone(300, 0.35, { to: 1400, type: 'sawtooth', vol: 0.04 }); },
+  yarn() { tone(520, 0.4, { to: 260, type: 'triangle', vol: 0.09, vib: 40 }); },
+  hole() { tone(180, 0.12, { to: 420, type: 'triangle', vol: 0.08 }); },
+  caught() {
+    tone(620, 0.18, { to: 880, type: 'sawtooth', vol: 0.05, vib: 25 });
+    tone(880, 0.35, { to: 420, type: 'sawtooth', vol: 0.05, vib: 25, delay: 0.17 });
+    tone(90, 0.25, { type: 'triangle', vol: 0.15, delay: 0.05 });
+  },
+  clear() { [523, 659, 784, 1047, 784, 1047].forEach((f, i) => tone(f, 0.12, { delay: i * 0.1, vol: 0.05 })); },
+  over() { [392, 330, 262, 196].forEach((f, i) => tone(f, 0.22, { delay: i * 0.18, type: 'triangle', vol: 0.1 })); },
+  life() { [659, 880, 1319].forEach((f, i) => tone(f, 0.1, { delay: i * 0.08, vol: 0.05 })); },
+  start() { [440, 660, 880].forEach((f, i) => tone(f, 0.08, { delay: i * 0.07, vol: 0.05 })); },
+};
+function setMuted(v) {
+  muted = v;
+  store.set('cheese-run-muted', muted);
+  const b = $('soundBtn');
+  b.setAttribute('aria-pressed', String(muted));
+  b.setAttribute('aria-label', muted ? 'הפעלת צליל' : 'השתקה');
+}
+
+// ============================================================
+// Input
+// ============================================================
+function setWant(d) { if (d) input.want = d; }
+
+window.addEventListener('keydown', (e) => {
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
+  const d = KEYDIR[e.code] || KEYDIR[e.key];
+  if (d) {
+    e.preventDefault();
+    if (game.state === 'play' || game.state === 'ready') setWant(d);
+    return;
+  }
+  if (e.code === 'KeyP' || e.key === 'Escape') { e.preventDefault(); togglePause(); return; }
+  if (e.code === 'KeyM') { setMuted(!muted); return; }
+  if ((e.key === 'Enter' || e.key === ' ') && game.state === 'paused' && document.activeElement?.tagName !== 'BUTTON') { e.preventDefault(); resume(); }
+}, { passive: false });
+
+// Swipe on the stage
+const stage = $('stage');
+let swipe = null;
+stage.addEventListener('pointerdown', (e) => {
+  if (e.pointerType === 'mouse' || e.target.closest('.overlay')) return;
+  swipe = { x: e.clientX, y: e.clientY, id: e.pointerId };
+});
+stage.addEventListener('pointermove', (e) => {
+  if (!swipe || e.pointerId !== swipe.id) return;
+  const dx = e.clientX - swipe.x, dy = e.clientY - swipe.y;
+  if (Math.hypot(dx, dy) < 18) return;
+  setWant(Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? NAMED.right : NAMED.left) : (dy > 0 ? NAMED.down : NAMED.up));
+  swipe.x = e.clientX; swipe.y = e.clientY;
+});
+const endSwipe = () => { swipe = null; };
+stage.addEventListener('pointerup', endSwipe);
+stage.addEventListener('pointercancel', endSwipe);
+
+// On-screen pad
+document.querySelectorAll('.pad button').forEach((b) => {
+  const d = NAMED[b.dataset.dir];
+  b.addEventListener('pointerdown', (e) => { e.preventDefault(); setWant(d); b.classList.add('held'); });
+  const up = () => b.classList.remove('held');
+  b.addEventListener('pointerup', up);
+  b.addEventListener('pointerleave', up);
+  b.addEventListener('pointercancel', up);
+  b.addEventListener('click', () => setWant(d));
+});
+
+$('startBtn').addEventListener('click', () => { audio(); sfx.start(); showScreen(null); newGame(); });
+$('againBtn').addEventListener('click', () => { audio(); sfx.start(); showScreen(null); newGame(); });
+$('resumeBtn').addEventListener('click', () => { audio(); resume(); });
+$('pauseBtn').addEventListener('click', () => { audio(); togglePause(); });
+$('soundBtn').addEventListener('click', () => { audio(); setMuted(!muted); });
+document.addEventListener('visibilitychange', () => { if (document.hidden) pause(); });
+
+// ============================================================
+// Layout: scale the 336x240 stage to fit, whole pixels when possible
+// ============================================================
+function fit() {
+  const root = document.documentElement;
+  const hud = $('hud'), pad = $('pad'), hint = $('hint');
+  const padH = getComputedStyle(pad).display !== 'none' ? pad.offsetHeight + 14 : 0;
+  const hintH = getComputedStyle(hint).display !== 'none' ? hint.offsetHeight + 14 : 0;
+  const availW = Math.max(200, window.innerWidth - 32 - 16);
+  // The HUD wraps on narrow screens, so estimate its height at the target width.
+  const hudH = hud.offsetHeight + 14;
+  const availH = Math.max(160, window.innerHeight - 24 - 16 - hudH - padH - hintH);
+  let s = Math.min(availW / W, availH / H);
+  if (s >= 2) s = Math.floor(s);
+  else if (s >= 1) s = Math.floor(s * 4) / 4;
+  s = Math.max(0.6, s);
+  root.style.setProperty('--stage-w', `${Math.round(W * s)}px`);
+  root.style.setProperty('--stage-h', `${Math.round(H * s)}px`);
+  root.style.setProperty('--px', `${Math.max(2, Math.round(s * 1.5))}px`);
+}
+window.addEventListener('resize', fit);
+
+// ============================================================
+// Main loop
+// ============================================================
+let last = performance.now(), acc = 0;
+function frame(now) {
+  acc += Math.min(0.1, (now - last) / 1000);
+  last = now;
+  if (game.state !== 'paused') {
+    while (acc >= STEP) { update(STEP); acc -= STEP; }
+  } else acc = 0;
+  render();
+  requestAnimationFrame(frame);
+}
+
+function boot(data) {
+  game.best = Math.max(store.get('cheese-run-best', 0) || 0, (data && data.best) || 0);
+  $('bestTitle').textContent = game.best;
+  setMuted(muted);
+  loadMap(0);
+  P = levelParams(1);
+  mouse = makeMouse();
+  cats = [];
+  for (let i = 0; i < 4; i++) cats.push(makeCat(i, i));
+  cheeses = [];
+  for (let i = 0; i < 3; i++) spawnCheese();
+  game.goal = P.goal;
+  updateHud(true);
+  fit();
+  requestAnimationFrame(fit);
+  showScreen('titleScreen');
+  requestAnimationFrame((n) => { last = n; requestAnimationFrame(frame); });
+}
+
+window.claude?.hot?.snapshot?.(() => ({ best: game.best }));
+if (window.claude?.hot?.ready) window.claude.hot.ready(boot);
+else boot(window.claude?.hot?.data ?? {});
+})();
+</script>
+</body>
+</html>
