@@ -6,7 +6,7 @@
 <title>מרוץ הגבינה</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Rubik+Pixels&family=Rubik:wght@400;500;700&family=Silkscreen&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;700;800&family=Silkscreen&display=swap">
 <style>
 /* Layout: a one-screen arcade cabinet. HUD strip on top, pixel stage in the middle, touch pad below on phones.
    Deliberately single-theme: the game always takes place in a kitchen at night. */
@@ -22,7 +22,7 @@
   --cheese-deep: #e8931c;
   --cat: #ee7d3a;
   --danger: #ff5d6c;
-  --display: "Rubik Pixels", "Rubik", "Heebo", "Arial Hebrew", system-ui, sans-serif;
+  --display: "Rubik", "Heebo", "Arial Hebrew", system-ui, sans-serif;
   --body: "Rubik", "Heebo", "Arial Hebrew", system-ui, sans-serif;
   --digits: "Silkscreen", ui-monospace, "Courier New", monospace;
   --stage-w: 672px;
@@ -44,6 +44,9 @@ body {
   -webkit-tap-highlight-color: transparent;
 }
 .game {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
   height: 100%;
   box-sizing: border-box;
   padding-inline: 16px;
@@ -165,17 +168,18 @@ canvas {
 .logo {
   margin: 0;
   font-family: var(--display);
-  font-weight: 400;
+  font-weight: 800;
   font-size: clamp(30px, 11cqw, 64px);
   line-height: 1;
+  letter-spacing: 0.01em;
   color: var(--cheese);
-  text-shadow: 3px 3px 0 var(--cheese-deep), 6px 6px 0 #5a2d12;
+  text-shadow: 2px 2px 0 var(--cheese-deep), 4px 4px 0 #5a2d12;
   text-wrap: balance;
 }
 .screen h2 {
   margin: 0;
   font-family: var(--display);
-  font-weight: 400;
+  font-weight: 800;
   font-size: clamp(26px, 8cqw, 48px);
   line-height: 1.05;
   color: var(--cheese);
@@ -310,7 +314,22 @@ canvas {
 .hint { margin: 0; font-size: 12px; color: var(--muted); text-align: center; }
 @media (pointer: coarse) {
   .pad { display: grid; }
-  .hint { display: none; }
+  .hint, .keyhelp { display: none; }
+}
+@media (pointer: coarse) and (orientation: landscape) {
+  .game {
+    display: grid;
+    grid-template-columns: auto auto;
+    grid-template-rows: auto auto;
+    grid-template-areas: "stage hud" "stage pad";
+    align-content: center;
+    justify-content: center;
+    column-gap: 28px;
+    row-gap: 18px;
+  }
+  .stage { grid-area: stage; align-self: center; }
+  .hud { grid-area: hud; width: 196px; align-self: end; }
+  .pad { grid-area: pad; align-self: start; justify-self: center; }
 }
 @media (prefers-reduced-motion: reduce) {
   .bar-fill, .btn, .toast { transition: none; }
@@ -355,7 +374,7 @@ canvas {
         </ul>
         <div class="cats" id="catRoll"></div>
         <button class="btn" id="startBtn" type="button">התחילו לרוץ</button>
-        <p class="keys"><kbd>←↑↓→</kbd> או <kbd>WASD</kbd> לתזוזה · <kbd>P</kbd> השהיה · <kbd>M</kbd> צליל · שיא: <span id="bestTitle">0</span></p>
+        <p class="keys"><span class="keyhelp"><kbd>←↑↓→</kbd> או <kbd>WASD</kbd> לתזוזה · <kbd>P</kbd> השהיה · <kbd>M</kbd> צליל · </span>שיא: <span id="bestTitle">0</span></p>
       </section>
 
       <section class="screen" id="pauseScreen" hidden>
@@ -1283,6 +1302,7 @@ function caught(cat) {
   const mp = posOf(mouse);
   burst(mp.x + 0.5, mp.y + 0.5, ['#ffffff', '#aaa6be', '#f596b4'], 16);
   sfx.caught();
+  try { if (navigator.vibrate) navigator.vibrate([60, 40, 140]); } catch (e) { /* not allowed here */ }
 }
 
 function levelClear() {
@@ -1566,6 +1586,10 @@ function resume() {
   showScreen(null);
 }
 function togglePause() { game.state === 'paused' ? resume() : pause(); }
+window.cheeseRunBack = () => {
+  if (['play', 'ready', 'dying', 'clear'].includes(game.state)) { pause(); return true; }
+  return false;
+};
 
 // ============================================================
 // Icons for the HUD and legend, drawn from the sprites
@@ -1711,23 +1735,35 @@ document.addEventListener('visibilitychange', () => { if (document.hidden) pause
 // ============================================================
 // Layout: scale the 336x240 stage to fit, whole pixels when possible
 // ============================================================
+const sideLayout = window.matchMedia('(pointer: coarse) and (orientation: landscape)');
 function fit() {
   const root = document.documentElement;
   const hud = $('hud'), pad = $('pad'), hint = $('hint');
-  const padH = getComputedStyle(pad).display !== 'none' ? pad.offsetHeight + 14 : 0;
-  const hintH = getComputedStyle(hint).display !== 'none' ? hint.offsetHeight + 14 : 0;
-  const availW = Math.max(200, window.innerWidth - 32 - 16);
-  // The HUD wraps on narrow screens, so estimate its height at the target width.
-  const hudH = hud.offsetHeight + 14;
-  const availH = Math.max(160, window.innerHeight - 24 - 16 - hudH - padH - hintH);
+  const shown = (el) => getComputedStyle(el).display !== 'none';
+  let availW, availH;
+  if (sideLayout.matches) {
+    const side = Math.max(hud.offsetWidth, shown(pad) ? pad.offsetWidth : 0) + 28;
+    availW = window.innerWidth - 32 - 16 - side;
+    availH = window.innerHeight - 24 - 16;
+  } else {
+    const padH = shown(pad) ? pad.offsetHeight + 14 : 0;
+    const hintH = shown(hint) ? hint.offsetHeight + 14 : 0;
+    availW = window.innerWidth - 32 - 16;
+    availH = window.innerHeight - 24 - 16 - hud.offsetHeight - 14 - padH - hintH;
+  }
+  availW = Math.max(200, availW);
+  availH = Math.max(140, availH);
   let s = Math.min(availW / W, availH / H);
-  if (s >= 2) s = Math.floor(s);
-  else if (s >= 1) s = Math.floor(s * 4) / 4;
+  // Snap to a whole number of device pixels per game pixel when that costs little size.
+  const dpr = window.devicePixelRatio || 1;
+  const dev = Math.floor(s * dpr);
+  if (dev >= 1 && dev / (s * dpr) > 0.8) s = dev / dpr;
   s = Math.max(0.6, s);
-  root.style.setProperty('--stage-w', `${Math.round(W * s)}px`);
-  root.style.setProperty('--stage-h', `${Math.round(H * s)}px`);
+  root.style.setProperty('--stage-w', `${W * s}px`);
+  root.style.setProperty('--stage-h', `${H * s}px`);
   root.style.setProperty('--px', `${Math.max(2, Math.round(s * 1.5))}px`);
 }
+if (sideLayout.addEventListener) sideLayout.addEventListener('change', fit);
 window.addEventListener('resize', fit);
 
 // ============================================================
