@@ -1,0 +1,357 @@
+/* ==========================================================================
+   Dvir Clicker - frame skins + accessory motion (used with js/skins.js)
+   --------------------------------------------------------------------------
+   A frame is a "frame-ID" class on .clicker (big, has .rays/.glow) or on
+   .skin-preview (menu thumbnail). Each frame sets the theme variables the
+   game's base CSS reads:
+     --fill        background of the circle (shows around the sticker photo)
+     --ring-inner  thin inner ring          --ring-outer  outer ring
+     --glow        big clicker glow colour  --rays        big clicker ray colour
+   Extra decoration lives on .dvir-body::before / ::after. Both default to
+   z-index 0 (behind the circle, .dvir is z-index 1); a layer meant to sit on
+   top of the photo uses z-index 2, still under the accessory (z-index 3).
+   Everything is sized from the element (%, var(--size)) so it works from the
+   56px thumbnails up to the 440px clicker, and only transform / opacity are
+   animated. The game's base rule loads after this file, so frame selectors
+   are written as .clicker.frame-x / .skin-preview.frame-x to out-rank it.
+   ========================================================================== */
+
+/* Decoration artwork is inline SVG (data: URIs), so nothing is fetched. */
+:root {
+  --dcs-sparkle: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E %3Cpath d='M10 0C10.6 7 13 9.4 20 10C13 10.6 10.6 13 10 20C9.4 13 7 10.6 0 10C7 9.4 9.4 7 10 0Z' fill='white'/%3E %3Ccircle cx='10' cy='10' r='1.6' fill='white'/%3E%3C/svg%3E");
+}
+
+/* ---- Shared decoration layer setup ---- */
+.frame-diamond .dvir-body::before,
+.frame-diamond .dvir-body::after,
+.frame-fire .dvir-body::before,
+.frame-fire .dvir-body::after,
+.frame-neon .dvir-body::before,
+.frame-neon .dvir-body::after,
+.frame-rainbow .dvir-body::before,
+.frame-rainbow .dvir-body::after,
+.frame-galaxy .dvir-body::before,
+.frame-galaxy .dvir-body::after {
+  content: "";
+  position: absolute;
+  z-index: 0;
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+/* ---- Gold (default: identical to the game's base values) ---- */
+.clicker.frame-gold,
+.skin-preview.frame-gold {
+  --fill: radial-gradient(circle at 35% 30%, #ffe48a 0%, #ffc42e 45%, #ff9a1f 100%);
+  --ring-inner: #fff3c4;
+  --ring-outer: #c46a00;
+  --glow: rgba(255, 196, 46, 0.45);
+  --rays: rgba(255, 210, 90, 0.2);
+}
+
+/* ---- Diamond: icy fill, pave ring of brilliants, glints running round it ---- */
+.clicker.frame-diamond,
+.skin-preview.frame-diamond {
+  --fill: radial-gradient(circle at 50% 38%, #ffffff 0%, #effcff 24%, #b9eefc 52%, #74d2f1 78%, #3d9fd8 100%);
+  --ring-inner: #ffffff;
+  --ring-outer: #7fd0f2;
+  --glow: rgba(127, 231, 255, 0.5);
+  --rays: rgba(205, 246, 255, 0.24);
+}
+
+.frame-diamond .dvir-body::before {
+  inset: -12%;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' xmlns:xlink='http://www.w3.org/1999/xlink' viewBox='0 0 100 100'%3E %3Cdefs%3E%3ClinearGradient id='t' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%23ffffff'/%3E%3Cstop offset='1' stop-color='%239fdcf3'/%3E%3C/linearGradient%3E %3ClinearGradient id='m' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%23ffffff'/%3E%3Cstop offset='.5' stop-color='%239ccbe2'/%3E%3Cstop offset='1' stop-color='%23f2fbff'/%3E%3C/linearGradient%3E %3Cg id='d'%3E%3Cpath d='M0.92 0.38L0.38 0.92L0.19 0.46L0.46 0.19' fill='%233f9fd6'/%3E%3Cpath d='M0.38 0.92L-0.38 0.92L-0.19 0.46L0.19 0.46' fill='%233f9fd6'/%3E%3Cpath d='M-0.38 0.92L-0.92 0.38L-0.46 0.19L-0.19 0.46' fill='%23a8e6fa'/%3E%3Cpath d='M-0.92 0.38L-0.92 -0.38L-0.46 -0.19L-0.46 0.19' fill='%23ffffff'/%3E%3Cpath d='M-0.92 -0.38L-0.38 -0.92L-0.19 -0.46L-0.46 -0.19' fill='%23ffffff'/%3E%3Cpath d='M-0.38 -0.92L0.38 -0.92L0.19 -0.46L-0.19 -0.46' fill='%23ffffff'/%3E%3Cpath d='M0.38 -0.92L0.92 -0.38L0.46 -0.19L0.19 -0.46' fill='%23a8e6fa'/%3E%3Cpath d='M0.92 -0.38L0.92 0.38L0.46 0.19L0.46 -0.19' fill='%233f9fd6'/%3E%3Cpath d='M0.46 0.19L0.19 0.46L-0.19 0.46L-0.46 0.19L-0.46 -0.19L-0.19 -0.46L0.19 -0.46L0.46 -0.19' fill='url(%23t)'/%3E%3Cpath d='M0.92 0.38L0.38 0.92L-0.38 0.92L-0.92 0.38L-0.92 -0.38L-0.38 -0.92L0.38 -0.92L0.92 -0.38Z' fill='none' stroke='%2325689a' stroke-width='.1'/%3E%3Ccircle cx='-.28' cy='-.3' r='.15' fill='%23fff'/%3E%3C/g%3E%3C/defs%3E %3Ccircle cx='50' cy='50' r='46' fill='none' stroke='url(%23m)' stroke-width='6.2'/%3E %3Cg fill='none' stroke='%2325689a' stroke-opacity='.6' stroke-width='.35'%3E%3Ccircle cx='50' cy='50' r='49'/%3E%3Ccircle cx='50' cy='50' r='42.9'/%3E%3C/g%3E %3Cuse xlink:href='%23d' transform='translate(50 4) scale(2.7)'/%3E%3Cuse xlink:href='%23d' transform='translate(55.9 4.4) scale(2.7)'/%3E%3Cuse xlink:href='%23d' transform='translate(61.7 5.5) scale(2.7)'/%3E%3Cuse xlink:href='%23d' transform='translate(67.3 7.4) scale(2.7)'/%3E%3Cuse xlink:href='%23d' transform='translate(72.6 9.9) scale(2.7)'/%3E%3Cuse xlink:href='%23d' transform='translate(77.5 13.2) scale(2.7)'/%3E%3Cuse xlink:href='%23d' transform='translate(82 17) scale(2.7)'/%3E%3Cuse xlink:href='%23d' transform='translate(85.9 21.3) scale(2.7)'/%3E%3Cuse xlink:href='%23d' transform='translate(89.3 26.2) scale(2.7)'/%3E%3Cuse xlink:href='%23d' transform='translate(92 31.4) scale(2.7)'/%3E%3Cuse xlink:href='%23d' transform='translate(94.1 36.9) scale(2.7)'/%3E%3Cuse xlink:href='%23d' transform='translate(95.4 42.7) scale(2.7)'/%3E%3Cuse xlink:href='%23d' transform='translate(95.9 48.5) scale(2.7)'/%3E%3Cuse xlink:href='%23d' transform='translate(95.8 54.4) scale(2.7)'/%3E%3Cuse xlink:href='%23d' transform='translate(94.8 60.2) scale(2.7)'/%3E%3Cuse xlink:href='%23d' transform='translate(93.1 65.9) scale(2.7)'/%3E%3Cuse xlink:href='%23d' transform='translate(90.8 71.3) scale(2.7)'/%3E%3Cuse xlink:href='%23d' transform='translate(87.7 76.3) scale(2.7)'/%3E%3Cuse xlink:href='%23d' transform='translate(84 80.9) scale(2.7)'/%3E%3Cuse xlink:href='%23d' transform='translate(79.8 85) scale(2.7)'/%3E%3Cuse xlink:href='%23d' transform='translate(75.1 88.5) scale(2.7)'/%3E%3Cuse xlink:href='%23d' transform='translate(69.9 91.4) scale(2.7)'/%3E%3Cuse xlink:href='%23d' transform='translate(64.5 93.6) scale(2.7)'/%3E%3Cuse xlink:href='%23d' transform='translate(58.8 95.1) scale(2.7)'/%3E%3Cuse xlink:href='%23d' transform='translate(52.9 95.9) scale(2.7)'/%3E%3Cuse xlink:href='%23d' transform='translate(47.1 95.9) scale(2.7)'/%3E%3Cuse xlink:href='%23d' transform='translate(41.2 95.1) scale(2.7)'/%3E%3Cuse xlink:href='%23d' transform='translate(35.5 93.6) scale(2.7)'/%3E%3Cuse xlink:href='%23d' transform='translate(30.1 91.4) scale(2.7)'/%3E%3Cuse xlink:href='%23d' transform='translate(24.9 88.5) scale(2.7)'/%3E%3Cuse xlink:href='%23d' transform='translate(20.2 85) scale(2.7)'/%3E%3Cuse xlink:href='%23d' transform='translate(16 80.9) scale(2.7)'/%3E%3Cuse xlink:href='%23d' transform='translate(12.3 76.3) scale(2.7)'/%3E%3Cuse xlink:href='%23d' transform='translate(9.2 71.3) scale(2.7)'/%3E%3Cuse xlink:href='%23d' transform='translate(6.9 65.9) scale(2.7)'/%3E%3Cuse xlink:href='%23d' transform='translate(5.2 60.2) scale(2.7)'/%3E%3Cuse xlink:href='%23d' transform='translate(4.2 54.4) scale(2.7)'/%3E%3Cuse xlink:href='%23d' transform='translate(4.1 48.5) scale(2.7)'/%3E%3Cuse xlink:href='%23d' transform='translate(4.6 42.7) scale(2.7)'/%3E%3Cuse xlink:href='%23d' transform='translate(5.9 36.9) scale(2.7)'/%3E%3Cuse xlink:href='%23d' transform='translate(8 31.4) scale(2.7)'/%3E%3Cuse xlink:href='%23d' transform='translate(10.7 26.2) scale(2.7)'/%3E%3Cuse xlink:href='%23d' transform='translate(14.1 21.3) scale(2.7)'/%3E%3Cuse xlink:href='%23d' transform='translate(18 17) scale(2.7)'/%3E%3Cuse xlink:href='%23d' transform='translate(22.5 13.2) scale(2.7)'/%3E%3Cuse xlink:href='%23d' transform='translate(27.4 9.9) scale(2.7)'/%3E%3Cuse xlink:href='%23d' transform='translate(32.7 7.4) scale(2.7)'/%3E%3Cuse xlink:href='%23d' transform='translate(38.3 5.5) scale(2.7)'/%3E%3Cuse xlink:href='%23d' transform='translate(44.1 4.4) scale(2.7)'/%3E%3C/svg%3E")
+    center / 100% 100% no-repeat;
+}
+
+/* two glints sitting on the gem ring; the layer turns so they travel round it */
+.frame-diamond .dvir-body::after {
+  inset: -12%;
+  z-index: 2;
+  background:
+    var(--dcs-sparkle) 12.2% 12.2% / 14% 14% no-repeat,
+    var(--dcs-sparkle) 75.3% 93.7% / 9% 9% no-repeat;
+  animation:
+    dcs-spin 14s linear infinite,
+    dcs-twinkle 2.4s ease-in-out infinite;
+}
+
+/* ---- Fire: hot fill, two flame rings flickering at different speeds ---- */
+.clicker.frame-fire,
+.skin-preview.frame-fire {
+  --fill: radial-gradient(circle at 50% 40%, #fff2a8 0%, #ffc63d 24%, #ff7a1a 50%, #e1361b 76%, #8e0f1f 100%);
+  --ring-inner: #ffe08a;
+  --ring-outer: #b8160d;
+  --glow: rgba(255, 90, 28, 0.6);
+  --rays: rgba(255, 130, 40, 0.26);
+}
+
+.frame-fire .dvir-body::before,
+.frame-fire .dvir-body::after {
+  inset: -26%;
+  border-radius: 0;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E %3Cdefs%3E%3CradialGradient id='g' gradientUnits='userSpaceOnUse' cx='50' cy='54' r='50'%3E %3Cstop offset='.6' stop-color='%23ff8a1f'/%3E%3Cstop offset='.75' stop-color='%23f0401a'/%3E%3Cstop offset='.86' stop-color='%23c8140f'/%3E%3Cstop offset='1' stop-color='%23a00a14' stop-opacity='0'/%3E%3C/radialGradient%3E %3CradialGradient id='o' gradientUnits='userSpaceOnUse' cx='50' cy='53' r='46'%3E %3Cstop offset='.66' stop-color='%23ffc23a'/%3E%3Cstop offset='.84' stop-color='%23ff8a1f'/%3E%3Cstop offset='1' stop-color='%23ff5a1f' stop-opacity='.6'/%3E%3C/radialGradient%3E%3C/defs%3E %3Cpath d='M50.4 24.1C40.7 24.1 41.1 17.8 47 14.9C50.2 13.1 53 12.4 54.7 11.3C55.8 14 59.8 17.2 58.6 20.6C57.6 23.4 53.5 24.2 50.4 24.1ZM61.7 26.7C52.4 25.4 54.1 15.5 60.5 11.1C64 8.3 68.4 7.7 71.3 6.1C69.2 10.7 72.4 16.8 70.3 22.7C68.8 26.9 64.8 27.1 61.7 26.7ZM70.4 34.9C59.9 32 62.5 24.2 69.9 22.1C73.9 20.7 78.8 21.1 82 20.4C79.7 23.6 82.9 28.9 80.4 33C78.4 36.2 73.8 35.8 70.4 34.9ZM75.6 42.8C66.7 39.5 69.9 31.9 76.8 30.1C80.6 28.8 83.6 28.9 85.7 28C85.3 31.9 87.5 37.5 84.6 41.5C82.5 44.6 78.5 43.9 75.6 42.8ZM76.9 52.6C68.4 48.6 71.1 43.6 77.4 43.7C80.8 43.6 83.7 44.3 85.7 44.1C85.4 46.6 87.8 50.7 85.5 52.9C83.6 54.8 79.7 53.8 76.9 52.6ZM72 65.7C62.4 60.8 65.2 55.9 72.2 56.8C76 57 80.8 58.8 84 59.4C81.3 60.5 84.1 64.9 81.6 66.8C79.5 68.6 75.1 67.3 72 65.7ZM28.1 65.8C18.4 70.7 16.2 65.5 21 60.3C23.4 57.3 18.6 59.2 14.8 60C29.4 55.1 34.7 55.4 34.7 58.6C34.9 61.3 31.3 64.2 28.1 65.8ZM23.6 55C14.7 59.3 12.5 53.9 16.8 49C19 46.1 16.4 46.7 14.3 46.6C24.5 44.4 29.4 45.1 29.6 48.4C29.8 51.1 26.4 53.6 23.6 55ZM24.1 43.9C15.2 47.3 12.4 39.4 16.3 33.3C18.2 29.7 15.6 29.7 13.3 28.8C23.8 28.9 29.2 31.8 29.9 36.8C30.4 40.6 26.9 42.8 24.1 43.9ZM31.3 32.7C21 35.2 19.5 27.3 24.8 22C27.6 18.9 23.2 19 19.8 18.3C33.8 18.6 39.1 21.6 38.9 26.3C38.7 30 34.6 31.9 31.3 32.7ZM38 27C28.4 28.4 27.3 19 32.5 13.4C35.2 10 31.2 9.4 28.1 8C41 10.7 45.7 15.3 45.3 21C45 25.2 41.1 26.6 38 27Z' fill='url(%23g)'/%3E%3Cpath d='M54.6 23.5C46.4 23 47 17.7 52.2 15.6C54.9 14.2 58.3 13.9 60.5 13C59.6 15.3 62.9 18.1 61.7 20.8C60.7 23.1 57.3 23.6 54.6 23.5ZM65.1 28.6C55.9 26.8 57.6 19.9 63.9 17.6C67.3 16.1 69.7 15.7 71.3 14.7C72.4 18.2 75.6 22.6 73.6 26.3C72.1 29.2 68.1 29.2 65.1 28.6ZM74 37.2C66.2 34.5 68.3 29.2 74 28.3C77 27.6 80.3 28.1 82.5 27.8C81.3 30 83.7 33.9 81.6 36.4C80 38.6 76.5 38.1 74 37.2ZM77.4 48.6C69.8 45 72.2 40.5 77.9 40.6C81 40.5 84.9 41.7 87.5 42C85.1 43.2 87.2 47 85.1 48.9C83.4 50.7 79.9 49.8 77.4 48.6ZM75.7 59C67.3 54.3 69.8 50.6 75.7 51.9C78.9 52.5 82.2 53.8 84.3 54.2C83.5 55.6 86.1 59.3 84 60.4C82.2 61.7 78.4 60.5 75.7 59ZM24.9 61.1C16.8 65.7 15 61.8 19 57.5C21.1 55.1 19.3 55.7 17.7 55.8C26.1 52.9 30.3 52.6 30.3 54.9C30.5 57.1 27.5 59.6 24.9 61.1ZM22.7 47.2C15.1 50.7 13.2 46 16.9 41.8C18.8 39.4 15.2 40.4 12.4 40.8C23.5 37.9 27.8 38.7 27.9 41.6C28.1 43.9 25.2 46 22.7 47.2ZM26.2 37.1C18.1 39.9 16.5 34.3 20.6 30C22.6 27.5 20 27.8 17.8 27.4C27.6 26.7 32 28.3 32 31.7C32 34.4 28.9 36.2 26.2 37.1ZM32.8 30C23.8 32.1 22.4 24.7 27.1 19.7C29.5 16.8 27.4 16.4 25.6 15.4C34.9 16.8 39.6 19.8 39.4 24.3C39.2 27.8 35.7 29.4 32.8 30ZM43.3 24.1C34.8 24.8 34.6 19.3 39.6 16.4C42.2 14.6 39.3 14.3 37.1 13.5C47.2 15 51 17.4 50.1 20.4C49.5 22.9 46 23.9 43.3 24.1Z' fill='url(%23o)'/%3E%3Cg fill='%23ffd34a'%3E%3Ccircle cx='14.4' cy='25.3' r='1'/%3E%3Ccircle cx='85.8' cy='26.1' r='0.5'/%3E%3Ccircle cx='80.5' cy='18.5' r='1'/%3E%3Ccircle cx='86.4' cy='23.1' r='0.7'/%3E%3Ccircle cx='20.2' cy='18.3' r='1'/%3E%3Ccircle cx='89.8' cy='27.2' r='0.5'/%3E%3Ccircle cx='19.4' cy='19.9' r='0.9'/%3E%3Ccircle cx='88.6' cy='23.2' r='0.7'/%3E%3C/g%3E%3C/svg%3E")
+    center / 100% 100% no-repeat;
+  transform-origin: 50% 60%;
+  animation: dcs-flicker-a 1.3s ease-in-out infinite alternate;
+}
+
+.frame-fire .dvir-body::after {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E %3Cdefs%3E%3CradialGradient id='g' gradientUnits='userSpaceOnUse' cx='50' cy='51' r='44'%3E %3Cstop offset='.72' stop-color='%23fffbe0'/%3E%3Cstop offset='.86' stop-color='%23ffe066'/%3E%3Cstop offset='1' stop-color='%23ffb02e'/%3E%3C/radialGradient%3E%3C/defs%3E %3Cpath d='M52.8 22.7C45.3 22.4 45.7 18.9 50.3 17.6C52.8 16.8 55.9 16.6 57.9 16.1C57.1 17.4 60.2 19.1 59.2 20.7C58.4 22.3 55.2 22.8 52.8 22.7ZM62.3 26.3C53.7 24.9 54.8 20.4 60.3 19.2C63.3 18.5 65.1 18.3 66.2 17.7C68.1 19.9 71.3 22.6 69.8 24.7C68.7 26.6 65 26.7 62.3 26.3ZM73.1 34.3C66.2 32 67.8 28 72.6 27.6C75.2 27.2 78.2 27.8 80.2 27.6C79 29.1 81.2 32.1 79.6 33.9C78.3 35.5 75.3 35.1 73.1 34.3ZM77.4 46C70.2 42.4 72.2 39 77.3 39.8C80 40 83.5 41.3 85.8 41.8C83.9 42.5 86.1 45.5 84.4 46.8C82.9 48 79.7 47.1 77.4 46ZM77 56.1C69.8 51.7 71.8 49 76.8 50.6C79.5 51.4 82.3 52.7 84.1 53.2C83.5 54.2 85.9 57.2 84.2 57.9C82.7 58.8 79.3 57.5 77 56.1ZM72.4 68.1C66.3 64.1 68.1 61.9 72.3 63.5C74.7 64.4 76.7 65.4 78 65.8C78 67 80 69.6 78.6 70C77.3 70.7 74.4 69.5 72.4 68.1ZM24.8 62.9C18.3 67.2 17 64.8 20.5 61.4C22.3 59.6 21.2 60.1 20.2 60.3C26.2 57.3 29.5 56.3 29.2 57.7C29.3 59.2 26.9 61.5 24.8 62.9ZM22.4 51.9C15.3 56 13.6 52.4 17.2 48.6C19 46.4 16.1 47.6 13.9 48.1C23.4 44.5 27.2 44.3 27.2 46.4C27.4 48.4 24.7 50.6 22.4 51.9ZM24.7 38.1C18 40.8 16.9 37.4 20.4 34.3C22.3 32.6 19.3 33.4 17 33.7C26.3 31.5 29.8 31.9 29.5 33.8C29.5 35.6 26.9 37.3 24.7 38.1ZM30.2 31.3C22.4 33.5 21.3 28.7 25.4 25.1C27.5 23 25.5 23.1 23.9 22.6C32.2 22.4 36.1 23.9 35.8 26.7C35.7 29.1 32.6 30.6 30.2 31.3ZM41.7 24.4C33.5 25.3 33.4 21.5 38.3 19.4C40.8 18.2 38.7 18.1 37 17.7C45.6 18.2 49.3 19.4 48.4 21.3C47.8 23.1 44.4 24.1 41.7 24.4Z' fill='url(%23g)'/%3E%3C/svg%3E");
+  animation: dcs-flicker-b 0.9s ease-in-out infinite alternate;
+}
+
+/* ---- Neon: violet club fill, pink tube ring, flickering cyan halo ---- */
+.clicker.frame-neon,
+.skin-preview.frame-neon {
+  --fill: radial-gradient(circle at 50% 38%, #ff6ee6 0%, #c834dc 20%, #6c1cb4 44%, #2c0c63 70%, #12052b 100%);
+  --ring-inner: #ffe8fd;
+  --ring-outer: #ff3df0;
+  --glow: rgba(255, 61, 240, 0.5);
+  --rays: rgba(58, 224, 255, 0.2);
+}
+
+.frame-neon .dvir {
+  box-shadow:
+    0 0 0 calc(var(--size) * 0.017) var(--ring-inner),
+    0 0 0 calc(var(--size) * 0.03) var(--ring-outer),
+    0 0 calc(var(--size) * 0.06) calc(var(--size) * 0.03) rgba(255, 61, 240, 0.65),
+    0 calc(var(--size) * 0.045) calc(var(--size) * 0.1) rgba(0, 0, 0, 0.5),
+    inset 0 0 calc(var(--size) * 0.06) rgba(255, 61, 240, 0.55);
+}
+
+.frame-neon .dvir-body::before {
+  inset: -9%;
+  border: calc(var(--size) * 0.013) solid #d4fcff;
+  box-shadow:
+    0 0 calc(var(--size) * 0.03) calc(var(--size) * 0.008) #3ae0ff,
+    inset 0 0 calc(var(--size) * 0.03) calc(var(--size) * 0.008) #3ae0ff;
+  animation: dcs-neon 4s linear infinite;
+}
+
+.frame-neon .dvir-body::after {
+  inset: -2%;
+  box-shadow: 0 0 calc(var(--size) * 0.1) calc(var(--size) * 0.03) rgba(255, 61, 240, 0.5);
+  animation: dcs-pulse 1.6s ease-in-out infinite alternate;
+}
+
+/* ---- Rainbow: pastel fill, spinning rainbow ring with a soft colour aura ---- */
+.clicker.frame-rainbow,
+.skin-preview.frame-rainbow {
+  --fill: radial-gradient(circle at 50% 38%, #ffffff 0%, #fff0f7 22%, #f1ddff 48%, #d4ecff 74%, #c8f6e4 100%);
+  --ring-inner: #ffffff;
+  --ring-outer: #ffffff;
+  --glow: rgba(200, 160, 255, 0.5);
+  --rays: rgba(255, 255, 255, 0.15);
+}
+
+/* the drop shadow moves to the static ::before so the spinning ring stays clean */
+.frame-rainbow .dvir {
+  box-shadow:
+    0 0 0 calc(var(--size) * 0.017) var(--ring-inner),
+    inset 0 calc(var(--size) * -0.03) calc(var(--size) * 0.075) rgba(0, 0, 0, 0.18);
+}
+
+.frame-rainbow .dvir-body::before {
+  inset: -7%;
+  box-shadow:
+    0 calc(var(--size) * 0.04) calc(var(--size) * 0.09) rgba(0, 0, 0, 0.45),
+    calc(var(--size) * -0.03) 0 calc(var(--size) * 0.08) rgba(255, 95, 140, 0.45),
+    calc(var(--size) * 0.03) 0 calc(var(--size) * 0.08) rgba(58, 200, 255, 0.45);
+}
+
+.frame-rainbow .dvir-body::after {
+  inset: -7%;
+  background: conic-gradient(#ff5f6d, #ffb347, #ffe66d, #7cff6b, #3ae0ff, #6a8bff, #c77dff, #ff5f6d);
+  animation: dcs-spin 6s linear infinite;
+}
+
+/* ---- Galaxy: starfield + nebula fill, orbiting comet, twinkling stars ---- */
+.clicker.frame-galaxy,
+.skin-preview.frame-galaxy {
+  --star: calc(var(--size) * 0.006);
+  --fill:
+    radial-gradient(circle at 13% 29%, #fff 0 calc(var(--star) * 1.1), transparent calc(var(--star) * 2.2)),
+    radial-gradient(circle at 21% 13%, #fff 0 calc(var(--star) * 0.8), transparent calc(var(--star) * 1.7)),
+    radial-gradient(circle at 7% 46%, #e6dcff 0 calc(var(--star) * 0.7), transparent calc(var(--star) * 1.5)),
+    radial-gradient(circle at 15% 60%, #fff 0 calc(var(--star) * 0.9), transparent calc(var(--star) * 1.9)),
+    radial-gradient(circle at 29% 7%, #cfe4ff 0 calc(var(--star) * 0.6), transparent calc(var(--star) * 1.3)),
+    radial-gradient(circle at 80% 13%, #fff 0 calc(var(--star) * 0.9), transparent calc(var(--star) * 1.9)),
+    radial-gradient(circle at 88% 31%, #fff 0 calc(var(--star) * 1.2), transparent calc(var(--star) * 2.4)),
+    radial-gradient(circle at 93% 47%, #e6dcff 0 calc(var(--star) * 0.7), transparent calc(var(--star) * 1.5)),
+    radial-gradient(circle at 73% 5%, #cfe4ff 0 calc(var(--star) * 0.6), transparent calc(var(--star) * 1.3)),
+    radial-gradient(circle at 84% 57%, #fff 0 calc(var(--star) * 0.7), transparent calc(var(--star) * 1.5)),
+    radial-gradient(circle at 5% 64%, #fff 0 calc(var(--star) * 0.5), transparent calc(var(--star) * 1.2)),
+    radial-gradient(ellipse 42% 34% at 20% 28%, rgba(255, 80, 200, 0.42), transparent 70%),
+    radial-gradient(ellipse 40% 44% at 84% 30%, rgba(60, 140, 255, 0.48), transparent 70%),
+    radial-gradient(circle at 50% 36%, #5232d0 0%, #2a1680 30%, #140a4a 62%, #07041a 100%);
+  --ring-inner: #d9ccff;
+  --ring-outer: #4d2fc4;
+  --glow: rgba(120, 80, 255, 0.55);
+  --rays: rgba(170, 140, 255, 0.2);
+}
+
+.frame-galaxy .dvir-body::before {
+  inset: -12%;
+  background:
+    radial-gradient(
+      circle at 50% 3.4%,
+      #fff 0,
+      #fff calc(var(--size) * 0.012),
+      rgba(210, 190, 255, 0.7) calc(var(--size) * 0.022),
+      transparent calc(var(--size) * 0.045)
+    ),
+    conic-gradient(
+      from 0deg,
+      transparent 0deg 170deg,
+      rgba(120, 90, 255, 0.35) 260deg,
+      rgba(200, 170, 255, 0.85) 340deg,
+      #fff 358deg,
+      transparent 360deg
+    );
+  -webkit-mask: radial-gradient(closest-side, transparent 82%, #000 85%, #000 97%, transparent 100%);
+  mask: radial-gradient(closest-side, transparent 82%, #000 85%, #000 97%, transparent 100%);
+  animation: dcs-spin 7s linear infinite;
+}
+
+.frame-galaxy .dvir-body::after {
+  inset: 0;
+  z-index: 2;
+  border-radius: 0;
+  background:
+    var(--dcs-sparkle) 16% 21% / 7% 7% no-repeat,
+    var(--dcs-sparkle) 86% 21% / 5.5% 5.5% no-repeat,
+    var(--dcs-sparkle) 8% 54% / 4.5% 4.5% no-repeat;
+  animation: dcs-twinkle 3.2s ease-in-out infinite;
+}
+
+/* ---- Accessory motion ---- */
+.dcs-acc-halo {
+  animation: dcs-bob 3s ease-in-out infinite alternate;
+}
+
+.dcs-acc-halo .dcs-twinkle {
+  animation: dcs-twinkle 1.9s ease-in-out infinite;
+}
+
+/* ---- Game integration guards ----
+   The score block sits just above the clicker, only about 11% of its size away.
+   At rest the hats and the halo stay below the rates line (skins.js keeps them within
+   9% of the size above the circle), but the fire / diamond / galaxy decorations reach
+   up to it, and Dvir's
+   squish spring scales everything up to 115% while tapping. Positioned layers paint
+   over plain text, so lift the score block above the accessory layer (z-index 3):
+   the numbers then always stay readable. Harmless if the game already does this. */
+.score {
+  position: relative;
+  z-index: 4;
+}
+
+/* Thumbnails in a hidden tab keep no infinite animations running (battery on phones). */
+.view:not(.active) .skin-preview *,
+.view:not(.active) .skin-preview *::before,
+.view:not(.active) .skin-preview *::after {
+  animation-play-state: paused;
+}
+
+/* ---- Keyframes ---- */
+@keyframes dcs-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes dcs-twinkle {
+  0%,
+  100% {
+    opacity: 0.25;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@keyframes dcs-pulse {
+  from {
+    opacity: 0.45;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* neon sign: steady glow with the odd quick stutter */
+@keyframes dcs-neon {
+  0%,
+  41%,
+  45%,
+  49%,
+  100% {
+    opacity: 1;
+  }
+  43%,
+  47% {
+    opacity: 0.35;
+  }
+  70% {
+    opacity: 0.8;
+  }
+}
+
+@keyframes dcs-flicker-a {
+  0% {
+    transform: scale(1, 1);
+    opacity: 0.92;
+  }
+  35% {
+    transform: scale(1.015, 1.05);
+    opacity: 1;
+  }
+  65% {
+    transform: scale(0.99, 1.02);
+    opacity: 0.88;
+  }
+  100% {
+    transform: scale(1.025, 1.07);
+    opacity: 1;
+  }
+}
+
+@keyframes dcs-flicker-b {
+  0% {
+    transform: scale(1, 1) rotate(0deg);
+  }
+  50% {
+    transform: scale(1.02, 1.06) rotate(1.5deg);
+  }
+  100% {
+    transform: scale(0.985, 1.03) rotate(-1.5deg);
+  }
+}
+
+/* small amplitude: the halo's top must stay no higher than 9% above the circle (see skins.js) */
+@keyframes dcs-bob {
+  from {
+    transform: translateY(0.5%);
+  }
+  to {
+    transform: translateY(-0.8%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .frame-diamond .dvir-body::before,
+  .frame-diamond .dvir-body::after,
+  .frame-fire .dvir-body::before,
+  .frame-fire .dvir-body::after,
+  .frame-neon .dvir-body::before,
+  .frame-neon .dvir-body::after,
+  .frame-rainbow .dvir-body::after,
+  .frame-galaxy .dvir-body::before,
+  .frame-galaxy .dvir-body::after,
+  .dcs-acc-halo,
+  .dcs-acc-halo .dcs-twinkle {
+    animation: none;
+  }
+}
