@@ -6,10 +6,12 @@
    Signal flow (built the same way for the live context and for offline
    test renders, so both run exactly the same synthesis code):
 
-     sfx voices ──► sfx bus (0.5) ────────────────────────┐
-        └──(wet)──► reverb sends ──► convolver ──────────┤
-     music voices ──► musicIn ──► fade ──► music level ──┼──► mix ──► compressor
-        lead ──► dotted-8th echo ──► musicIn       └─► reverb       ──► soft clip ──► out
+     sfx voices ──► effect trim ──► sfx bus (0.5) ──────────┐
+         └─(wet)─► reverb sends ──► convolver ──────────────┤
+     music voices ──► musicIn ──► fade ──► level (0.15) ────┼──► mix
+         lead ──► dotted-8th echo ──► musicIn   └─► reverb  │
+                                                            ▼
+                mix ──► compressor ──► unmakeup ──► soft clip ──► out
 
    The compressor tames stacked sounds and the soft clipper after it caps the
    output below 0.91, so nothing can ever hard-clip.
@@ -27,7 +29,8 @@
      DCAudio.setIntensity(level)    0 normal, 1 frenzy; switches on the next bar
      DCAudio.pause() / resume()     app background / foreground
      DCAudio.play(name, opts)       sound effect, see SFX below
-     DCAudio._renderOffline(sec)    test hook -> Promise<{peak, rms, perSoundPeaks, ...}>
+     DCAudio._renderOffline(sec[, keepBuffers])
+                                    test hook -> Promise<{peak, rms, perSoundPeaks, ...}>
      DCAudio._meter()               test hook: live output peak (lazy analyser)
      DCAudio._debug()               test hook: engine state snapshot
    ========================================================================== */
@@ -41,7 +44,7 @@
   // Tunables
   // ---------------------------------------------------------------
   const SFX_LEVEL = 0.5;
-  const MUSIC_LEVEL = 0.16;
+  const MUSIC_LEVEL = 0.15;
   const BPM = 120;
   const STEP = 60 / BPM / 4; // one 16th note, seconds
   const LOOKAHEAD = 0.12; // how far ahead the scheduler books notes
@@ -82,18 +85,25 @@
   function buildKit(c) {
     const k = { c, popVoices: [], voiceEnds: [], last: {}, buyStep: 0, lastBuy: -9 };
 
+    // Limiter-ish compressor. WebAudio compressors add automatic makeup gain
+    // ((1 / full-range gain) ^ 0.6, about x1.44 for these settings), so
+    // "unmakeup" brings quiet material back to unity: the chain is then
+    // transparent below ~0.4 and levels off around 0.6 for loud stacks.
     const mix = c.createGain();
     const comp = c.createDynamicsCompressor();
-    comp.threshold.value = -14;
-    comp.knee.value = 10;
-    comp.ratio.value = 8;
+    comp.threshold.value = -8;
+    comp.knee.value = 6;
+    comp.ratio.value = 10;
     comp.attack.value = 0.002;
     comp.release.value = 0.2;
+    const unmakeup = c.createGain();
+    unmakeup.gain.value = 1 / 1.44;
     const clip = c.createWaveShaper();
     clip.curve = softClipCurve();
     const out = c.createGain();
     mix.connect(comp);
-    comp.connect(clip);
+    comp.connect(unmakeup);
+    unmakeup.connect(clip);
     clip.connect(out);
     out.connect(c.destination);
     k.out = out;
@@ -207,22 +217,34 @@
   // Voice primitives. All take (kit, destination, startTime, options)
   // ---------------------------------------------------------------
 
-  // A group gain node that disconnects itself when its last voice ends.
-  function group(k, dest) {
+  // One sound effect's voices share a group: a trim gain (plus matching
+  // reverb sends) that disconnects itself when the last voice ends.
+  function group(k, dest, gain) {
+    const level = gain === undefined ? 1 : gain;
     const node = k.c.createGain();
+    node.gain.value = level;
     node.connect(dest);
+    const sends = [];
     let n = 0;
     return {
       node,
+      send(i) {
+        if (!sends[i]) {
+          sends[i] = k.c.createGain();
+          sends[i].gain.value = level;
+          sends[i].connect(k.sends[i]);
+        }
+        return sends[i];
+      },
       hold() {
         n++;
       },
       release() {
-        if (--n <= 0) {
-          try {
-            node.disconnect();
-          } catch (_) {}
-        }
+        if (--n > 0) return;
+        try {
+          node.disconnect();
+          sends.forEach((g) => g && g.disconnect());
+        } catch (_) {}
       },
     };
   }
@@ -259,7 +281,7 @@
     }
     const grp = dest.node ? dest : null;
     outNode.connect(grp ? grp.node : dest);
-    if (o.wet && k.sends[o.wet]) outNode.connect(k.sends[o.wet]);
+    if (o.wet && k.sends[o.wet]) outNode.connect(grp ? grp.send(o.wet) : k.sends[o.wet]);
     if (o.also) outNode.connect(o.also);
     if (grp) grp.hold();
     src.onended = () => {
@@ -389,6 +411,13 @@
   // ---------------------------------------------------------------
   const PENTA = [0, 2, 4, 7, 9, 12, 14]; // C major pentatonic, matches the music
 
+  // Per-effect output trim, balanced by measured peak and by ear-weighting:
+  // bright bells read louder than low bloops at the same peak.
+  const LEVEL = {
+    pop: 0.9, crit: 1.15, buy: 1.8, upgrade: 1.2, error: 1.5, milestone: 1.5, achievement: 1.8,
+    goldenSpawn: 2.6, goldenCatch: 2.6, frenzyStart: 1.85, rebirth: 1.75, tab: 3, unlock: 2.1, equip: 1.5,
+  };
+
   const SFX = {
     // Click: a soft water-drop "plip". Combo climbs the pentatonic scale
     // (one step per 5 combo, capped at 30) and adds sparkle on top.
@@ -400,8 +429,8 @@
         const v = k.popVoices.shift();
         v.node.gain.setTargetAtTime(0, t, 0.005);
       }
-      const g = group(k, dest);
-      g.node.gain.value = 1 / (1 + 0.2 * k.popVoices.length);
+      const g = group(k, dest, LEVEL.pop);
+      g.node.gain.value = LEVEL.pop / (1 + 0.2 * k.popVoices.length);
       const step = Math.min(PENTA.length - 1, Math.floor((combo - 1) / 5) + (rnd() < 0.3 ? 1 : 0));
       const f = hz(PENTA[step]) * Math.pow(2, (rnd() - 0.5) / 80);
       const bright = combo / 30;
@@ -414,7 +443,7 @@
 
     // Lucky x10 click: a thump, a big plip, a bell and a burst of sparkles.
     crit(k, dest, t) {
-      const g = group(k, dest);
+      const g = group(k, dest, LEVEL.crit);
       tone(k, g, t, { f: 240, f2: 50, dur: 0.28, vol: 0.5, atk: 0.003 });
       tone(k, g, t, { f: hz(12) * 0.6, f2: hz(12), glide: 0.025, dur: 0.2, vol: 0.38 });
       tone(k, g, t, { type: "triangle", f: hz(19), dur: 0.3, vol: 0.1, atk: 0.003, wet: 2 });
@@ -427,7 +456,7 @@
     // Building bought: drawer "ka" + two-note metallic "ching". Quick repeat
     // purchases climb a little ladder instead of repeating the same pitch.
     buy(k, dest, t) {
-      const g = group(k, dest);
+      const g = group(k, dest, LEVEL.buy);
       k.buyStep = t - k.lastBuy < 1.2 ? (k.buyStep + 1) % 4 : 0;
       k.lastBuy = t;
       const s = [0, 2, 4, 7][k.buyStep];
@@ -440,7 +469,7 @@
 
     // One-time upgrade: rising fifth (G5 -> D6) then an ascending sparkle.
     upgrade(k, dest, t) {
-      const g = group(k, dest);
+      const g = group(k, dest, LEVEL.upgrade);
       tone(k, g, t, { wave: "square", f: hz(7) * 0.94, f2: hz(7), glide: 0.03, dur: 0.13, vol: 0.12, lp: 3000 });
       tone(k, g, t, { f: hz(19), dur: 0.13, vol: 0.05 });
       tone(k, g, t + 0.1, {
@@ -453,7 +482,7 @@
 
     // Can't afford: two soft, low descending bloops ("uh-uh").
     error(k, dest, t) {
-      const g = group(k, dest);
+      const g = group(k, dest, LEVEL.error);
       tone(k, g, t, { type: "triangle", f: 300, f2: 240, dur: 0.12, vol: 0.3, lp: 1400 });
       tone(k, g, t, { f: 150, f2: 120, dur: 0.12, vol: 0.18 });
       tone(k, g, t + 0.12, { type: "triangle", f: 225, f2: 165, dur: 0.2, vol: 0.3, lp: 1100 });
@@ -462,7 +491,7 @@
 
     // Big number milestone: brassy C-E-G-C run into a held chord + cymbal.
     milestone(k, dest, t) {
-      const g = group(k, dest);
+      const g = group(k, dest, LEVEL.milestone);
       [0, 4, 7, 12].forEach((n, i) => {
         const at = t + i * 0.075;
         tone(k, g, at, { wave: "square", f: hz(n), dur: 0.14, vol: 0.1, lp: 2600, pan: (i - 1.5) * 0.15 });
@@ -482,7 +511,7 @@
 
     // Achievement: bell-like G-C-E-G jingle, then a shimmer.
     achievement(k, dest, t) {
-      const g = group(k, dest);
+      const g = group(k, dest, LEVEL.achievement);
       [[7, 0], [12, 0.09], [16, 0.18], [19, 0.3]].forEach((p, i) => {
         const last = i === 3;
         tone(k, g, t + p[1], { type: "triangle", f: hz(p[0]), dur: last ? 0.7 : 0.16, vol: 0.18, wet: 2 });
@@ -494,7 +523,7 @@
 
     // Golden coin appeared: a soft harp-like twinkle drifting left to right.
     goldenSpawn(k, dest, t) {
-      const g = group(k, dest);
+      const g = group(k, dest, LEVEL.goldenSpawn);
       [12, 14, 16, 19, 21, 24].forEach((n, i) => {
         bell(k, g, t + i * 0.05, { f: hz(n), ratio: 2, index: 0.5, dur: 0.6, vol: 0.055, pan: -0.5 + i * 0.2, wet: 3 });
       });
@@ -502,7 +531,7 @@
 
     // Golden coin caught: bright upward glide, then a shower of coins.
     goldenCatch(k, dest, t) {
-      const g = group(k, dest);
+      const g = group(k, dest, LEVEL.goldenCatch);
       tone(k, g, t, { type: "triangle", f: hz(-5), f2: hz(24), glide: 0.22, dur: 0.26, vol: 0.18, atk: 0.01 });
       tone(k, g, t, { f: hz(-17), f2: hz(12), glide: 0.22, dur: 0.26, vol: 0.14, atk: 0.01 });
       bell(k, g, t + 0.2, { f: hz(24), ratio: 3.5, index: 1, dur: 0.7, vol: 0.1, wet: 2 });
@@ -511,11 +540,11 @@
 
     // Frenzy buff: filtered saw sweep + noise riser landing on a chord.
     frenzyStart(k, dest, t) {
-      const g = group(k, dest);
+      const g = group(k, dest, LEVEL.frenzyStart);
       [-8, 8].forEach((d) => {
         tone(k, g, t, {
           type: "sawtooth", f: 110, f2: 440, glide: 0.5, dur: 0.52, vol: 0.08, atk: 0.02, sus: 1, rel: 0.08,
-          lp: 350, lp2: 4500, lpTime: 0.5, q: 5, detune: d, pan: d / 20,
+          lp: 350, lp2: 3200, lpTime: 0.5, q: 4, detune: d, pan: d / 20,
         });
       });
       noise(k, g, t, { ft: "bandpass", f: 700, f2: 7000, sweep: 0.5, q: 1.2, dur: 0.56, vol: 0.09, atk: 0.42 });
@@ -528,7 +557,7 @@
 
     // Rebirth: ~1.7 s rising whoosh, then a boom, a big C chord and chimes.
     rebirth(k, dest, t) {
-      const g = group(k, dest);
+      const g = group(k, dest, LEVEL.rebirth);
       const rise = 1.7;
       noise(k, g, t, { ft: "bandpass", f: 180, f2: 6000, sweep: rise, q: 1.6, dur: rise + 0.3, vol: 0.28, atk: rise * 0.9, wet: 3 });
       [-10, 0, 10].forEach((d) => {
@@ -555,14 +584,14 @@
 
     // UI tab switch: a tiny, quiet tick.
     tab(k, dest, t) {
-      const g = group(k, dest);
+      const g = group(k, dest, LEVEL.tab);
       tone(k, g, t, { f: 1500, f2: 1100, dur: 0.035, vol: 0.06, atk: 0.001 });
       noise(k, g, t, { ft: "highpass", f: 5000, dur: 0.01, vol: 0.035, atk: 0.0005 });
     },
 
     // Skin unlocked: quick ascending sparkle ending on a bell.
     unlock(k, dest, t) {
-      const g = group(k, dest);
+      const g = group(k, dest, LEVEL.unlock);
       [12, 14, 16, 19, 21, 24].forEach((n, i) => {
         tone(k, g, t + i * 0.04, { type: "triangle", f: hz(n), dur: 0.16, vol: 0.09, pan: -0.4 + i * 0.16 });
       });
@@ -574,7 +603,7 @@
 
     // Skin equipped: a soft "clk-pop".
     equip(k, dest, t) {
-      const g = group(k, dest);
+      const g = group(k, dest, LEVEL.equip);
       noise(k, g, t, { ft: "bandpass", f: 3000, q: 1, dur: 0.015, vol: 0.1, atk: 0.001 });
       tone(k, g, t, { f: 520, f2: 820, glide: 0.03, dur: 0.1, vol: 0.28, atk: 0.002 });
       tone(k, g, t + 0.055, { f: 1040, f2: 1240, glide: 0.02, dur: 0.08, vol: 0.1 });
@@ -599,7 +628,7 @@
       tone(k, k.musicIn, t, { type: "triangle", f: mtof(note), dur, vol: 0.13, atk: 0.01, sus: 0.6, rel: 0.08, pan: -0.25 });
     },
     bass(k, t, note, dur) {
-      tone(k, k.musicIn, t, { type: "triangle", f: mtof(note), dur, vol: 0.4, atk: 0.004, sus: 0.75, dec: 0.12, rel: 0.03 });
+      tone(k, k.musicIn, t, { type: "triangle", f: mtof(note), dur, vol: 0.27, atk: 0.004, sus: 0.65, dec: 0.1, rel: 0.03 });
     },
     arp(k, t, note, vol, pan) {
       tone(k, k.musicIn, t, { wave: "pulse25", f: mtof(note), dur: 0.13, vol, lp: 2400, pan });
@@ -611,7 +640,7 @@
       tone(k, k.musicIn, t, { f: mtof(note), dur: 0.09, vol: 0.04, atk: 0.002, pan });
     },
     kick(k, t, v) {
-      tone(k, k.musicIn, t, { f: 150, f2: 45, glide: 0.09, dur: 0.22, vol: 0.7 * v, atk: 0.002 });
+      tone(k, k.musicIn, t, { f: 150, f2: 45, glide: 0.09, dur: 0.2, vol: 0.5 * v, atk: 0.002 });
       tone(k, k.musicIn, t, { type: "triangle", f: 700, f2: 150, dur: 0.02, vol: 0.12 * v, atk: 0.001 });
     },
     snare(k, t, v) {
@@ -774,7 +803,7 @@
   let hidden = typeof document !== "undefined" && document.visibilityState === "hidden";
   let timer = 0;
   let stopTimer = 0;
-  let lastResumeAsk = 0;
+  let lastGestureResume = 0; // when init() last asked a suspended context to resume
   let analyser = null;
   let meterBuf = null;
   const seq = { step: 0, nextTime: 0, intensity: 0, pending: 0 };
@@ -853,7 +882,6 @@
 
   function askResume() {
     if (!ctx || ctx.state === "running" || ctx.state === "closed") return;
-    lastResumeAsk = Date.now();
     try {
       const p = ctx.resume();
       if (p && p.then) p.then(sync, noop);
@@ -971,13 +999,15 @@
     try {
       // 1) music alone; frenzy layers from halfway
       const music = renderJob(secs, rate, (k) => bookMusic(k, 0.05, secs, secs / 2), keepBuffers);
-      // 2) each effect alone
+      // 2) each effect alone. Effects start at WARM s: a fresh compressor
+      // starts with its gain pulled down and needs ~0.3 s to settle.
+      const WARM = 0.5;
       const each = SFX_NAMES.map((name) =>
-        renderJob(SFX_LEN[name] || 1.5, rate, (k) => playAt(k, name, 0.02, { combo: 12 })),
+        renderJob(WARM + (SFX_LEN[name] || 1.5), rate, (k) => playAt(k, name, WARM, { combo: 12 }), keepBuffers),
       );
       // 3) stress: 200 clicks in 4 s with a rising combo
-      const burst = renderJob(4.6, rate, (k) => {
-        for (let i = 0; i < 200; i++) playAt(k, "pop", 0.02 + i * 0.02, { combo: i + 1 });
+      const burst = renderJob(WARM + 4.6, rate, (k) => {
+        for (let i = 0; i < 200; i++) playAt(k, "pop", WARM + i * 0.02, { combo: i + 1 });
       });
       // 4) everything at once: music + every effect in turn + a click burst
       let at = 0.4;
@@ -1014,7 +1044,10 @@
           mixSeconds: mixLen,
           sampleRate: rate,
         };
-        if (keepBuffers) res.buffers = { music: r[0].buffer, mix: r[2].buffer };
+        if (keepBuffers) {
+          res.buffers = { music: r[0].buffer, mix: r[2].buffer, sfx: {} };
+          SFX_NAMES.forEach((name, i) => (res.buffers.sfx[name] = r[3 + i].buffer));
+        }
         return res;
       }, (e) => ({ error: String(e) }));
     } catch (e) {
@@ -1042,6 +1075,7 @@
         if (!AC) return;
         if (!ctx) createContext();
         if (!paused() && ctx.state !== "running") {
+          lastGestureResume = Date.now();
           unlockTick();
           askResume();
         }
@@ -1090,12 +1124,9 @@
         if (!sfxOn || !kit || paused()) return;
         const fn = SFX[name];
         if (!fn) return;
-        if (ctx.state !== "running") {
-          askResume();
-          // Only queue sounds while a resume we just asked for is pending;
-          // otherwise they would all burst out together later.
-          if (Date.now() - lastResumeAsk > 500) return;
-        }
+        // Sounds booked on a suspended clock all burst out on resume, so only
+        // allow that right after a gesture-driven init() (the first tap).
+        if (ctx.state !== "running" && Date.now() - lastGestureResume > 500) return;
         const t = ctx.currentTime + 0.005;
         if (!allow(kit, name, t)) return;
         fn(kit, kit.sfxIn, t, opts || {});
@@ -1134,18 +1165,22 @@
 
     // Test hook: engine state snapshot.
     _debug() {
-      return {
-        context: ctx ? ctx.state : "none",
-        time: ctx ? ctx.currentTime : 0,
-        sfx: sfxOn,
-        music: musicOn,
-        musicState,
-        scheduler: !!timer,
-        step: seq.step,
-        intensity: seq.intensity,
-        pendingIntensity: seq.pending,
-        paused: paused(),
-      };
+      try {
+        return {
+          context: ctx ? ctx.state : "none",
+          time: ctx ? ctx.currentTime : 0,
+          sfx: sfxOn,
+          music: musicOn,
+          musicState,
+          scheduler: !!timer,
+          step: seq.step,
+          intensity: seq.intensity,
+          pendingIntensity: seq.pending,
+          paused: paused(),
+        };
+      } catch (_) {
+        return {};
+      }
     },
   };
 })();

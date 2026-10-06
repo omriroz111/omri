@@ -7,10 +7,14 @@
    player's production.
 
    Performance: everything soft or glowy (nebula textures, star glows,
-   vignette, coin sprites) is rendered ONCE to small offscreen canvases. A
-   frame is one gradient fill plus a couple of hundred drawImage calls: no
-   shadowBlur, no per-frame gradients, no per-frame allocations. The game's
-   own requestAnimationFrame loop drives us through step(dt).
+   vignette, coin sprites) is rendered ONCE to small offscreen canvases. The
+   slow-moving nebula is composed into a ~1/3-resolution buffer ~30 times a
+   second, so a frame is one full-screen drawImage of that buffer plus ~150
+   small sprites (stars, coins): no shadowBlur, no per-frame gradients, no
+   per-frame allocations. The nebula textures themselves are generated in
+   small time slices over the first frames and then fade in, so startup
+   never blocks. The game's own requestAnimationFrame loop drives us through
+   step(dt).
 
    API:
      DCBackground.init(canvas, { coinSrc: "coin.png" })
@@ -28,8 +32,11 @@
   const MAX_DPR = 1.5;
   const MAX_COINS = 40;
   const MAX_RAIN = 6; // coins per second at the very top end
-  const NEB_RES = 112; // nebula texture size; it is soft, so it upscales well
-  const DEFAULT_ACCENT = "#7b4dff";
+  const NEB_RES = 96; // nebula texture size; it is soft, so it upscales well
+  const NEB_SCALE = 0.35; // nebula buffer resolution, per CSS pixel
+  const NEB_MAX_AREA = 320000; // ...but at most this many buffer pixels
+  const NEB_INTERVAL = 1 / 30; // seconds between nebula buffer updates...
+  const NEB_INTERVAL_SLOW = 1 / 12; // ...when the canvas turns out to be slow
 
   const rand = (a, b) => a + Math.random() * (b - a);
   const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
@@ -78,7 +85,7 @@
   const rgba = (c, a) => "rgba(" + c[0] + "," + c[1] + "," + c[2] + "," + a + ")";
 
   // ---------------------------------------------------------------
-  // Procedural nebula texture (computed once, a few ms)
+  // Procedural nebula textures (computed once, a few rows per frame)
   // ---------------------------------------------------------------
   // 8 gradient directions for 2D Perlin noise.
   const GX = [1, -1, 0, 0, 0.7071, -0.7071, 0.7071, -0.7071];
@@ -138,31 +145,32 @@
 
   // A cloud: soft, noise-distorted round falloff with domain-warped wisps.
   // dens = opacity 0..1, mix = 0..1 blend between the cloud's two colours.
-  function makeField(seed) {
+  // Built row by row (fieldRow) so startup never blocks for long.
+  function newField(seed) {
     const N = NEB_RES;
-    const noise = makeNoise(seed);
-    const dens = new Float32Array(N * N);
-    const mix = new Float32Array(N * N);
-    for (let j = 0; j < N; j++) {
-      for (let i = 0; i < N; i++) {
-        const nx = ((i + 0.5) / N) * 2 - 1;
-        const ny = ((j + 0.5) / N) * 2 - 1;
-        const r = Math.sqrt(nx * nx + ny * ny);
-        if (r >= 1) continue;
-        const px = nx * 1.35;
-        const py = ny * 1.35;
-        const wx = fbm(noise, px + 3.1, py + 1.7, 2);
-        const wy = fbm(noise, px - 4.3, py + 6.2, 2);
-        const n = fbm(noise, px * 1.7 + wx * 1.9, py * 1.7 + wy * 1.9, 4) + 0.5;
-        const wisps = smooth(clamp((n - 0.28) / 0.5, 0, 1));
-        const rr = r * (1 + 0.5 * wx);
-        const edge = smooth(clamp((1 - r) / 0.3, 0, 1)); // exactly 0 at the border
-        const k = j * N + i;
-        dens[k] = Math.exp(-rr * rr * 3.2) * edge * (0.14 + 0.86 * wisps * wisps);
-        mix[k] = clamp(0.5 + wy * 1.6, 0, 1);
-      }
+    return { noise: makeNoise(seed), dens: new Float32Array(N * N), mix: new Float32Array(N * N), row: 0 };
+  }
+
+  function fieldRow(f, j) {
+    const N = NEB_RES;
+    const noise = f.noise;
+    const ny = ((j + 0.5) / N) * 2 - 1;
+    for (let i = 0; i < N; i++) {
+      const nx = ((i + 0.5) / N) * 2 - 1;
+      const r = Math.sqrt(nx * nx + ny * ny);
+      if (r >= 1) continue;
+      const px = nx * 1.35;
+      const py = ny * 1.35;
+      const wx = fbm(noise, px + 3.1, py + 1.7, 2);
+      const wy = fbm(noise, px - 4.3, py + 6.2, 2);
+      const n = fbm(noise, px * 1.7 + wx * 1.9, py * 1.7 + wy * 1.9, 4) + 0.5;
+      const wisps = smooth(clamp((n - 0.28) / 0.5, 0, 1));
+      const rr = r * (1 + 0.5 * wx);
+      const edge = smooth(clamp((1 - r) / 0.3, 0, 1)); // exactly 0 at the border
+      const k = j * N + i;
+      f.dens[k] = Math.exp(-rr * rr * 3.2) * edge * (0.14 + 0.86 * wisps * wisps);
+      f.mix[k] = clamp(0.5 + wy * 1.6, 0, 1);
     }
-    return { dens, mix };
   }
 
   // Colour a field into a sprite canvas (cheap; redone on accent change).
@@ -195,21 +203,24 @@
     { field: 1, x: 0.08, y: 0.9, r: 0.92, sx: 1.15, a: 0.95, colA: "#561a5e", colB: "#33103d", ax: 0.04, ay: 0.03, pd: 83, pb: 29 },
     { field: 2, x: 0.16, y: 0.34, r: 0.62, sx: 1.35, a: 0.6, colA: "#1b3478", colB: "#1d1b5c", ax: 0.05, ay: 0.04, pd: 97, pb: 19 },
   ];
-  // The accent cloud (colour follows the equipped Dvir frame).
-  const ACCENT = { field: 3, x: 0.64, y: 0.5, r: 0.7, sx: 1.2, a: 1, ax: 0.05, ay: 0.04, pd: 89, pb: 25 };
+  // The accent cloud (colour follows the equipped Dvir frame): an aura in
+  // the upper-middle, roughly behind Dvir on phones and desktops alike.
+  const ACCENT = { field: 3, x: 0.6, y: 0.36, r: 0.7, sx: 1.2, a: 1, ax: 0.05, ay: 0.04, pd: 89, pb: 25 };
   // Mode tints, faded in by the eased mode weights.
   const TINTS = {
     frenzy: [
-      { field: 1, x: 0.5, y: 1.02, r: 1.0, sx: 1.6, a: 0.5, colA: "#ff8a1f", colB: "#c2410c", ax: 0.04, ay: 0.02, pd: 31, pb: 7 },
-      { field: 3, x: 0.86, y: 0.12, r: 0.72, sx: 1.2, a: 0.34, colA: "#ffb52e", colB: "#c2410c", ax: 0.04, ay: 0.03, pd: 37, pb: 9 },
-      { field: 0, x: 0.08, y: 0.4, r: 0.66, sx: 1.2, a: 0.3, colA: "#ff7a3d", colB: "#9a2a0c", ax: 0.04, ay: 0.04, pd: 41, pb: 8 },
+      { field: 1, x: 0.5, y: 1.02, r: 1.0, sx: 1.6, a: 0.46, colA: "#ffa030", colB: "#ff6a1f", ax: 0.04, ay: 0.02, pd: 31, pb: 7 },
+      { field: 3, x: 0.86, y: 0.12, r: 0.72, sx: 1.2, a: 0.34, colA: "#ffc44a", colB: "#ff8a1f", ax: 0.04, ay: 0.03, pd: 37, pb: 9 },
+      { field: 0, x: 0.08, y: 0.4, r: 0.66, sx: 1.2, a: 0.3, colA: "#ffa03d", colB: "#ff5a1a", ax: 0.04, ay: 0.04, pd: 41, pb: 8 },
     ],
     clickfrenzy: [
-      { field: 2, x: 0.06, y: 0.24, r: 0.8, sx: 1.2, a: 0.42, colA: "#ff4f8b", colB: "#a21a6b", ax: 0.05, ay: 0.04, pd: 23, pb: 3.1 },
-      { field: 0, x: 0.96, y: 0.62, r: 0.78, sx: 1.2, a: 0.38, colA: "#3ae0ff", colB: "#2453c9", ax: 0.05, ay: 0.04, pd: 27, pb: 3.7 },
-      { field: 1, x: 0.7, y: 0.02, r: 0.6, sx: 1.4, a: 0.26, colA: "#b84dff", colB: "#ff4f8b", ax: 0.05, ay: 0.03, pd: 19, pb: 2.9 },
+      { field: 2, x: 0.06, y: 0.24, r: 0.8, sx: 1.2, a: 0.34, colA: "#ff4f8b", colB: "#d42a8a", ax: 0.05, ay: 0.04, pd: 23, pb: 3.1 },
+      { field: 0, x: 0.96, y: 0.62, r: 0.78, sx: 1.2, a: 0.3, colA: "#3ae0ff", colB: "#2f6bff", ax: 0.05, ay: 0.04, pd: 27, pb: 3.7 },
+      { field: 1, x: 0.7, y: 0.02, r: 0.6, sx: 1.4, a: 0.2, colA: "#b84dff", colB: "#ff4f8b", ax: 0.05, ay: 0.03, pd: 19, pb: 2.9 },
     ],
   };
+  // Per mode: [normal-blend strength, additive strength] for the tints.
+  const TINT_BLEND = { frenzy: [0.75, 0.55], clickfrenzy: [0, 1] };
   // Star colours per mode: [white, blue, gold, lilac] style slots.
   const STAR_COLORS = {
     normal: ["#ffffff", "#cfe0ff", "#ffe6b8", "#e6d2ff"],
@@ -250,6 +261,14 @@
   let H = 0;
   let dpr = 1;
   let baseGrad = null;
+  let neb = null; // low-resolution nebula buffer (opaque)
+  let nebCtx = null;
+  let nebKx = NEB_SCALE; // buffer pixels per CSS pixel (x / y: the buffer
+  let nebKy = NEB_SCALE; // is whole pixels, so the ratios differ a hair)
+  let nebAge = 0;
+  let nebInterval = NEB_INTERVAL;
+  let nebCost = 0; // moving average of a buffer refresh, in ms
+  let nebDirty = true;
   let reduced = false;
   let dirty = true; // reduced motion only redraws when something changed
   let sinceDraw = 0;
@@ -265,10 +284,14 @@
   const weight = { normal: 1, frenzy: 0, clickfrenzy: 0 };
 
   // Sprites (offscreen canvases).
+  const FIELD_SEEDS = [7, 23, 41, 59]; // four textures shared by all clouds
   const fields = [];
+  let fieldJob = null; // texture being computed
+  let nebReady = false; // all cloud sprites painted
+  let nebFade = 0; // 0..1 fade-in once they are
   let clouds = []; // painted CLOUDS
   const tints = { frenzy: [], clickfrenzy: [] };
-  let accentColor = parseColor(DEFAULT_ACCENT);
+  let accentColor = [123, 77, 255]; // soft violet until setAccent()
   let accentFrom = null; // cross-fade: old sprite...
   let accentTo = null; // ...to new sprite
   let accentMix = 1;
@@ -387,17 +410,17 @@
     buildStarSprites();
     // Warm light for pulses.
     glowSprite = radialSprite(128, [
-      [0, "rgba(255,246,220,1)"],
-      [0.18, "rgba(255,222,150,0.6)"],
-      [0.45, "rgba(255,170,90,0.2)"],
-      [1, "rgba(255,140,60,0)"],
+      [0, "rgba(255,240,205,1)"],
+      [0.18, "rgba(255,200,100,0.55)"],
+      [0.45, "rgba(255,160,60,0.18)"],
+      [1, "rgba(255,130,40,0)"],
     ]);
     ringSprite = radialSprite(256, [
-      [0, "rgba(255,230,180,0)"],
-      [0.62, "rgba(255,230,180,0)"],
-      [0.8, "rgba(255,236,190,0.55)"],
-      [0.87, "rgba(255,210,150,0.2)"],
-      [1, "rgba(255,200,140,0)"],
+      [0, "rgba(255,210,120,0)"],
+      [0.62, "rgba(255,210,120,0)"],
+      [0.8, "rgba(255,222,140,0.6)"],
+      [0.87, "rgba(255,190,90,0.22)"],
+      [1, "rgba(255,170,70,0)"],
     ]);
     // Vignette: corners darken a little to frame the UI.
     vignette = makeCanvas(128, 128);
@@ -423,26 +446,60 @@
     grain = gc;
   }
 
-  function buildNebula() {
-    // Four textures, shared by the clouds and the mode tints.
-    if (!fields.length) {
-      const seeds = [7, 23, 41, 59];
-      for (let i = 0; i < seeds.length; i++) fields.push(makeField(seeds[i]));
+  // Compute texture rows until the time budget is spent (a couple of dozen
+  // frames on a slow phone in total). Returns true once every texture exists.
+  function buildFields(budgetMs) {
+    const t0 = performance.now();
+    while (fields.length < FIELD_SEEDS.length) {
+      if (!fieldJob) fieldJob = newField(FIELD_SEEDS[fields.length]);
+      while (fieldJob.row < NEB_RES) {
+        fieldRow(fieldJob, fieldJob.row++);
+        if (performance.now() - t0 > budgetMs) return false;
+      }
+      fields.push(fieldJob);
+      fieldJob = null;
     }
-    clouds = CLOUDS.map((c) => paintField(fields[c.field], parseColor(c.colA), parseColor(c.colB), c.a));
-    for (const key in TINTS) {
-      tints[key] = TINTS[key].map((c) => paintField(fields[c.field], parseColor(c.colA), parseColor(c.colB), c.a));
+    return true;
+  }
+
+  // Colouring the textures into sprites, as a list of small jobs so startup
+  // can do one per frame.
+  function paintJobs() {
+    const jobs = [];
+    const paint = (def) => paintField(fields[def.field], parseColor(def.colA), parseColor(def.colB), def.a);
+    CLOUDS.forEach((def, i) => jobs.push(() => (clouds[i] = paint(def))));
+    for (const key in TINTS) TINTS[key].forEach((def, i) => jobs.push(() => (tints[key][i] = paint(def))));
+    jobs.push(() => {
+      accentTo = paintAccent(accentColor);
+      accentFrom = null;
+      accentMix = 1;
+    });
+    return jobs;
+  }
+
+  let paintQueue = null;
+
+  // One sprite per call; the nebula is ready after the last one.
+  function paintNebulaStep() {
+    if (!paintQueue) paintQueue = paintJobs();
+    paintQueue.shift()();
+    if (!paintQueue.length) {
+      paintQueue = null;
+      nebReady = true;
     }
-    accentTo = paintAccent(accentColor);
-    accentFrom = null;
-    accentMix = 1;
+  }
+
+  // All at once (after a lost canvas context comes back).
+  function paintNebula() {
+    const jobs = paintJobs();
+    for (let i = 0; i < jobs.length; i++) jobs[i]();
   }
 
   // Bright accent colours are drawn fainter so the scene stays dark enough
   // for the UI text on top; the second colour is a darker, cooler variant.
   function paintAccent(c) {
     const lum = luminance(c);
-    const peak = clamp(0.12 / Math.sqrt(lum + 0.01), 0.14, 0.45);
+    const peak = clamp(0.12 / Math.sqrt(lum + 0.01), 0.2, 0.45);
     const dark = [c[0] * 0.45 + 20, c[1] * 0.35 + 10, c[2] * 0.55 + 40].map((v) => Math.min(255, v | 0));
     return paintField(fields[ACCENT.field], c, dark, peak);
   }
@@ -511,7 +568,7 @@
   // ---------------------------------------------------------------
   // Coins
   // ---------------------------------------------------------------
-  function spawnCoin(atY) {
+  function spawnCoin() {
     if (coins.length >= MAX_COINS || !coinBig) return;
     const c = coinPool.pop() || {};
     const d = Math.pow(Math.random(), 1.4); // depth 0 = far, 1 = near; more far ones
@@ -520,7 +577,7 @@
     c.alpha = 0.3 + 0.25 * d;
     c.vy = 34 + 44 * d;
     c.x0 = rand(-0.02, 1.02) * W;
-    c.y = atY === undefined ? -c.size : atY;
+    c.y = -c.size; // just above the top edge
     c.sway = 3 + 10 * d;
     c.swf = rand(0.5, 1.1);
     c.swph = rand(0, TAU);
@@ -538,6 +595,18 @@
   // Update
   // ---------------------------------------------------------------
   function update(dt) {
+    // Nebula textures: computed a little each frame, coloured one sprite per
+    // frame, then faded in.
+    let nebChanging = false;
+    if (!nebReady) {
+      if (fields.length < FIELD_SEEDS.length) buildFields(2);
+      else paintNebulaStep();
+      nebChanging = nebReady;
+    } else if (nebFade < 1) {
+      nebFade = Math.min(1, nebFade + dt / 1.5);
+      nebChanging = true;
+    }
+
     // Mode weights (~1s transitions).
     const km = approach(dt, 0.33);
     let modeMoving = false;
@@ -565,8 +634,16 @@
     }
 
     if (reduced) {
-      if (modeMoving || accentMix < 1 || pulsing) dirty = true;
+      if (modeMoving || accentMix < 1 || nebChanging) nebDirty = true;
+      if (modeMoving || accentMix < 1 || nebChanging || pulsing) dirty = true;
       return;
+    }
+
+    // The nebula moves very slowly: refresh its buffer ~30 times a second.
+    nebAge += dt;
+    if (nebAge >= nebInterval) {
+      nebAge %= nebInterval;
+      nebDirty = true;
     }
 
     // Clocks.
@@ -640,16 +717,17 @@
   // ---------------------------------------------------------------
   // Draw
   // ---------------------------------------------------------------
-  // A cloud sprite centred on (cx, cy), half-size rw x rh, rotated.
-  function drawSprite(img, cx, cy, rw, rh, rot, a) {
+  // Draw img centred on (cx, cy) CSS px, half-size rw x rh, on context g
+  // whose pixels are kx / ky per CSS pixel. (No rotation: axis-aligned
+  // scaled blits are much cheaper if the canvas ends up software-rendered.)
+  function drawSprite(g, kx, ky, img, cx, cy, rw, rh, a) {
     if (a <= 0.003 || !img) return;
-    const c = Math.cos(rot) * dpr;
-    const s = Math.sin(rot) * dpr;
-    ctx.setTransform(c, s, -s, c, cx * dpr, cy * dpr);
-    ctx.globalAlpha = alpha01(a);
-    ctx.drawImage(img, -rw, -rh, rw * 2, rh * 2);
+    g.setTransform(kx, 0, 0, ky, cx * kx, cy * ky);
+    g.globalAlpha = alpha01(a);
+    g.drawImage(img, -rw, -rh, rw * 2, rh * 2);
   }
 
+  // A cloud drifts and breathes (size + glow) on its own slow sine clocks.
   function drawCloud(img, def, size, a, clock, i) {
     const t = clock;
     const ph = i * 1.7;
@@ -657,35 +735,71 @@
     const cy = H * (def.y + def.ay * Math.sin((t * TAU) / (def.pd * 1.3) + ph * 2.1));
     const breathe = 1 + 0.07 * Math.sin((t * TAU) / def.pb + ph);
     const r = size * def.r * breathe;
-    const rot = 0.25 * Math.sin((t * TAU) / (def.pd * 1.7) + ph);
     const glow = 0.86 + 0.14 * Math.sin((t * TAU) / (def.pb * 1.3) + ph * 3);
-    drawSprite(img, cx, cy, r * def.sx, r, rot, a * glow);
+    drawSprite(nebCtx, nebKx, nebKy, img, cx, cy, r * def.sx, r, a * glow);
+  }
+
+  // Base gradient + clouds + tints + vignette into the low-res buffer.
+  function renderNebula() {
+    const g = nebCtx;
+    const wF = weight.frenzy;
+    const wC = weight.clickfrenzy;
+    const size = (W + H) * 0.5;
+    g.setTransform(nebKx, 0, 0, nebKy, 0, 0);
+    g.globalCompositeOperation = "source-over";
+    g.globalAlpha = 1;
+    g.fillStyle = baseGrad;
+    g.fillRect(0, 0, W, H);
+
+    // Palette clouds dim while a frenzy tint takes over.
+    const fade = smooth(nebFade); // startup fade-in
+    const dimClouds = (1 - 0.62 * wF - 0.4 * wC) * fade;
+    for (let i = 0; i < clouds.length; i++) drawCloud(clouds[i], CLOUDS[i], size, dimClouds, nebClock, i);
+    const am = smooth(accentMix);
+    if (accentFrom && am < 1) drawCloud(accentFrom, ACCENT, size, (1 - am) * fade, nebClock, 3);
+    drawCloud(accentTo, ACCENT, size, am * fade, nebClock, 3);
+    // Mode tints: a normal pass replaces some of the purple (so gold reads
+    // as gold, not mauve), then an additive pass makes it glow.
+    for (const key in tints) {
+      const w = weight[key] * fade;
+      if (w < 0.003) continue;
+      const list = tints[key];
+      const blend = TINT_BLEND[key];
+      for (let pass = 0; pass < 2; pass++) {
+        if (!blend[pass]) continue;
+        g.globalCompositeOperation = pass ? "lighter" : "source-over";
+        for (let i = 0; i < list.length; i++) drawCloud(list[i], TINTS[key][i], size, w * blend[pass], tintClock, i + 5);
+      }
+    }
+
+    // Vignette: corners darken a little to frame the UI.
+    g.setTransform(nebKx, 0, 0, nebKy, 0, 0);
+    g.globalCompositeOperation = "source-over";
+    g.globalAlpha = 1;
+    g.drawImage(vignette, 0, 0, W, H);
   }
 
   function draw() {
     if (!ctx || !W || !H) return;
     const wF = weight.frenzy;
     const wC = weight.clickfrenzy;
-    const size = (W + H) * 0.5;
 
-    // Base.
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    // Nebula buffer, stretched over the whole (opaque) canvas.
+    const refresh = nebDirty;
+    const t0 = refresh ? performance.now() : 0;
+    if (refresh) {
+      renderNebula();
+      nebDirty = false;
+    }
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.globalCompositeOperation = "source-over";
     ctx.globalAlpha = 1;
-    ctx.fillStyle = baseGrad;
-    ctx.fillRect(0, 0, W, H);
-
-    // Nebula: palette clouds dim a little while a frenzy tint takes over.
-    const dimClouds = 1 - 0.3 * Math.max(wF, wC);
-    for (let i = 0; i < clouds.length; i++) drawCloud(clouds[i], CLOUDS[i], size, dimClouds, nebClock, i);
-    const am = smooth(accentMix);
-    if (accentFrom && am < 1) drawCloud(accentFrom, ACCENT, size, 1 - am, nebClock, 3);
-    drawCloud(accentTo, ACCENT, size, am, nebClock, 3);
-    for (const key in tints) {
-      const w = weight[key];
-      if (w < 0.003) continue;
-      const list = tints[key];
-      for (let i = 0; i < list.length; i++) drawCloud(list[i], TINTS[key][i], size, w, tintClock, i + 5);
+    ctx.drawImage(neb, 0, 0, canvas.width, canvas.height);
+    if (refresh) {
+      // With a GPU canvas this is a fraction of a millisecond. A software
+      // canvas rasterises the buffer right here, so refresh it less often.
+      nebCost += (performance.now() - t0 - nebCost) * 0.1;
+      nebInterval = nebCost > 2.5 ? NEB_INTERVAL_SLOW : NEB_INTERVAL;
     }
 
     // Stars (additive light). During a mode change both colour sets draw,
@@ -701,11 +815,8 @@
     ctx.globalCompositeOperation = "source-over";
     if (coins.length) drawCoins();
 
-    // Vignette, then pulse light on top, then grain.
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.globalAlpha = 1;
-    ctx.drawImage(vignette, 0, 0, W, H);
-    if (pulseBoost > 0) drawPulses(size);
+    // Pulse light on top, then grain.
+    if (pulseBoost > 0) drawPulses();
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.globalCompositeOperation = "source-over";
     ctx.globalAlpha = 1;
@@ -718,6 +829,7 @@
 
   function drawStars(near, bright) {
     const twinkle = !reduced;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0); // one transform for all stars
     for (let m = 0; m < MODES.length; m++) {
       const key = MODES[m];
       const w = weight[key];
@@ -733,13 +845,12 @@
         const x = s.u * W;
         const y = s.v * H;
         const d = s.size * 6;
-        ctx.setTransform(dpr, 0, 0, dpr, x * dpr, y * dpr);
         ctx.globalAlpha = alpha01(a);
-        ctx.drawImage(sprites[s.col], -d / 2, -d / 2, d, d);
+        ctx.drawImage(sprites[s.col], x - d / 2, y - d / 2, d, d);
         if (s.sparkle) {
           const k = s.size * 9;
           ctx.globalAlpha = alpha01(a * a * 0.9);
-          ctx.drawImage(sparkle, -k / 2, -k / 2, k, k);
+          ctx.drawImage(sparkle, x - k / 2, y - k / 2, k, k);
         }
       }
     }
@@ -787,7 +898,7 @@
     return sum;
   }
 
-  function drawPulses(size) {
+  function drawPulses() {
     ctx.globalCompositeOperation = "lighter";
     const cx = W / 2;
     const cy = H / 2;
@@ -799,15 +910,15 @@
       const fade = (1 - t) * (1 - t);
       if (reduced) {
         // No expansion: just a soft swell of light that fades.
-        const r = size * 0.7;
-        drawSprite(glowSprite, cx, cy, r, r, 0, p.s * 0.3 * fade);
+        const r = reach * 0.9;
+        drawSprite(ctx, dpr, dpr, glowSprite, cx, cy, r, r, p.s * 0.3 * fade);
         continue;
       }
       const e = 1 - Math.pow(1 - t, 3); // ease-out
       const r = reach * (0.45 + 0.75 * e) * (0.75 + 0.5 * p.s);
-      drawSprite(glowSprite, cx, cy, r, r, 0, p.s * 0.42 * fade);
+      drawSprite(ctx, dpr, dpr, glowSprite, cx, cy, r, r, p.s * 0.42 * fade);
       const rr = reach * (0.08 + 1.1 * e);
-      drawSprite(ringSprite, cx, cy, rr, rr, 0, p.s * 0.5 * (1 - t));
+      drawSprite(ctx, dpr, dpr, ringSprite, cx, cy, rr, rr, p.s * 0.5 * (1 - t));
     }
   }
 
@@ -832,7 +943,20 @@
     // Resizing clears the canvas (and its state), so only touch it if needed.
     if (canvas.width !== pw) canvas.width = pw;
     if (canvas.height !== ph) canvas.height = ph;
-    baseGrad = ctx.createLinearGradient(0, 0, 0, H);
+    // Nebula buffer: ~1/3 resolution (capped), it is all soft light anyway.
+    const k = Math.min(NEB_SCALE, Math.sqrt(NEB_MAX_AREA / (W * H)));
+    const nw = Math.max(1, Math.ceil(W * k));
+    const nh = Math.max(1, Math.ceil(H * k));
+    nebKx = nw / W;
+    nebKy = nh / H;
+    if (!neb) {
+      neb = makeCanvas(nw, nh);
+      nebCtx = neb.getContext("2d", { alpha: false }) || neb.getContext("2d");
+    }
+    if (neb.width !== nw) neb.width = nw;
+    if (neb.height !== nh) neb.height = nh;
+    nebDirty = true;
+    baseGrad = nebCtx.createLinearGradient(0, 0, 0, H);
     baseGrad.addColorStop(0, "#0e0b22");
     baseGrad.addColorStop(0.45, "#120e26");
     baseGrad.addColorStop(1, "#170f2c");
@@ -852,7 +976,7 @@
       coins.length = 0;
       shoot.on = false;
     }
-    dirty = true;
+    dirty = nebDirty = true;
   }
 
   function watchReducedMotion() {
@@ -881,7 +1005,6 @@
 
         watchReducedMotion();
         buildStaticSprites();
-        buildNebula();
 
         const src = (opts && opts.coinSrc) || "coin.png";
         coinImg = new Image();
@@ -899,12 +1022,15 @@
 
         window.addEventListener("resize", api.resize);
         window.addEventListener("orientationchange", api.resize);
+        // Also watch the canvas box itself: catches size changes that come
+        // without a window resize event, and never forces a layout.
+        if (window.ResizeObserver) new ResizeObserver(api.resize).observe(canvas);
         // Context loss (Android can drop GPU canvases in the background):
         // sprites with lost pixels get rebuilt and the scene repainted.
         canvas.addEventListener("contextrestored", () => {
           try {
             buildStaticSprites();
-            buildNebula();
+            if (nebReady) paintNebula();
             buildCoinSprites();
             applySize(true);
           } catch (_) {
@@ -912,7 +1038,7 @@
           }
         });
         document.addEventListener("visibilitychange", () => {
-          dirty = true;
+          dirty = nebDirty = true;
         });
       } catch (err) {
         ready = false;
@@ -929,6 +1055,7 @@
           // Static scene: repaint only on change (plus a slow safety repaint).
           sinceDraw += dt;
           if (!dirty && sinceDraw < 2) return;
+          if (sinceDraw >= 2) nebDirty = true;
           dirty = false;
           sinceDraw = 0;
         }
@@ -949,7 +1076,7 @@
     setProduction(perSec) {
       try {
         const n = Number(perSec);
-        production = isFinite(n) && n > 0 ? n : 0;
+        production = n > 0 ? n : 0; // NaN / negative -> 0; Infinity -> max rain
       } catch (_) {
         /* ignore */
       }
@@ -993,12 +1120,12 @@
         if (!c) return;
         if (accentColor && c[0] === accentColor[0] && c[1] === accentColor[1] && c[2] === accentColor[2]) return;
         accentColor = c;
-        if (!ready) return; // painted in init
+        if (!nebReady) return; // painted with the rest of the nebula
         // Start the cross-fade from whatever is most visible right now.
         accentFrom = accentMix >= 0.5 || !accentFrom ? accentTo : accentFrom;
         accentTo = paintAccent(c);
         accentMix = 0;
-        dirty = true;
+        dirty = nebDirty = true;
       } catch (_) {
         /* ignore */
       }
