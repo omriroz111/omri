@@ -4,10 +4,12 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="theme-color" content="#120e26" />
+    <meta name="color-scheme" content="dark" />
     <title>Dvir Clicker</title>
     <meta name="description" content="לוחצים על דביר, אוספים דבירים, קונים שדרוגים." />
     <link rel="icon" type="image/png" href="./coin.png" />
     <link rel="preload" href="./fonts/rubik-hebrew.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="stylesheet" href="./css/skins.css" />
     <style>
       /* Rubik (SIL OFL 1.1, see fonts/OFL.txt), variable weight 400-900. */
       @font-face {
@@ -28,18 +30,23 @@
 
       :root {
         --bg: #120e26;
-        --bg-2: #1d1640;
-        --panel: rgba(255, 255, 255, 0.06);
-        --panel-line: rgba(255, 255, 255, 0.1);
+        --panel: rgba(22, 16, 48, 0.86);
+        --panel-2: rgba(255, 255, 255, 0.05);
+        --line: rgba(255, 255, 255, 0.1);
         --text: #fff8ec;
         --muted: #b9b1d6;
         --gold: #ffc42e;
         --gold-deep: #ff9a1f;
+        --gold-light: #fff3c4;
         --pink: #ff4f8b;
         --cyan: #3ae0ff;
         --green: #7cff6b;
-        --radius: 18px;
-        --dvir-size: min(68vw, 46vh, 400px);
+        --violet: #9b7bff;
+        --red: #ff5d6c;
+        --radius: 20px;
+        --dvir-size: min(64vw, 44vh, 420px);
+        --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+        --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
       }
 
       * {
@@ -62,14 +69,45 @@
         overflow-x: hidden;
         -webkit-tap-highlight-color: transparent;
         touch-action: manipulation;
+        -webkit-user-select: none;
+        user-select: none;
       }
 
       button {
         font: inherit;
         color: inherit;
+        -webkit-tap-highlight-color: transparent;
+      }
+
+      button:focus-visible {
+        outline: 2px solid var(--cyan);
+        outline-offset: 2px;
+      }
+
+      img {
+        -webkit-user-drag: none;
+      }
+
+      #bg,
+      #fx {
+        position: fixed;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+      }
+
+      #bg {
+        z-index: 0;
+      }
+
+      #fx {
+        z-index: 10;
       }
 
       .app {
+        position: relative;
+        z-index: 1;
         min-height: 100%;
         display: flex;
         flex-direction: column;
@@ -79,18 +117,18 @@
       }
 
       /* ---------- header ---------- */
-      header {
+      .topbar {
         display: flex;
         align-items: center;
         justify-content: space-between;
         gap: 12px;
-        padding: 14px 16px 0;
-        padding-top: max(14px, env(safe-area-inset-top));
+        padding: 12px 16px 0;
+        padding-top: max(12px, env(safe-area-inset-top));
       }
 
-      h1 {
+      .logo {
         margin: 0;
-        font-size: clamp(26px, 5vw, 38px);
+        font-size: clamp(24px, 5vw, 38px);
         font-weight: 900;
         letter-spacing: -0.5px;
         direction: ltr;
@@ -99,36 +137,34 @@
         background-clip: text;
         color: transparent;
         filter: drop-shadow(0 3px 0 #7a3b00) drop-shadow(0 8px 18px rgba(255, 170, 30, 0.35));
+        white-space: nowrap;
       }
 
       .toggles {
         display: flex;
-        gap: 8px;
+        gap: 6px;
       }
 
       .toggle {
-        width: 44px;
-        height: 44px;
+        width: 42px;
+        height: 42px;
         border-radius: 14px;
-        border: 1px solid var(--panel-line);
-        background: var(--panel);
-        font-size: 20px;
+        border: 1px solid var(--line);
+        background: var(--panel-2);
+        font-size: 19px;
         cursor: pointer;
         display: grid;
         place-items: center;
-        transition: background 0.15s, transform 0.15s;
-      }
-
-      .toggle:hover {
-        background: rgba(255, 255, 255, 0.12);
+        transition: background 0.15s, transform 0.2s var(--ease-spring), opacity 0.2s;
       }
 
       .toggle:active {
-        transform: scale(0.92);
+        transform: scale(0.88);
       }
 
       .toggle[aria-pressed="false"] {
-        opacity: 0.45;
+        opacity: 0.4;
+        filter: grayscale(1);
       }
 
       /* ---------- layout ---------- */
@@ -136,31 +172,9 @@
         flex: 1;
         display: grid;
         grid-template-columns: 1fr;
-        gap: 8px;
-        padding: 8px 16px 24px;
-        padding-bottom: max(24px, env(safe-area-inset-bottom));
-      }
-
-      @media (min-width: 900px) {
-        /* Lock the app to the screen; only the shop scrolls. */
-        .app {
-          height: 100vh;
-          height: 100dvh;
-          min-height: 620px;
-          overflow: hidden;
-          overflow: clip;
-        }
-        .layout {
-          grid-template-columns: 1fr minmax(340px, 400px);
-          grid-template-rows: minmax(0, 1fr);
-          min-height: 0;
-        }
-        .shop {
-          overflow-y: auto;
-        }
-        :root {
-          --dvir-size: min(40vw, 48vh, 440px);
-        }
+        gap: 6px;
+        padding: 4px 12px 12px;
+        padding-bottom: max(12px, env(safe-area-inset-bottom));
       }
 
       /* ---------- stage ---------- */
@@ -169,9 +183,8 @@
         flex-direction: column;
         align-items: center;
         justify-content: center;
-        gap: 10px;
-        user-select: none;
-        -webkit-user-select: none;
+        gap: 4px;
+        min-width: 0;
       }
 
       .score {
@@ -179,264 +192,36 @@
       }
 
       .count {
-        font-size: clamp(44px, 10vw, 76px);
+        display: inline-block;
+        font-size: clamp(42px, 10vw, 78px);
         font-weight: 900;
-        line-height: 1;
+        line-height: 1.02;
         font-variant-numeric: tabular-nums;
         text-shadow: 0 4px 0 rgba(0, 0, 0, 0.35), 0 0 28px rgba(255, 196, 46, 0.35);
+        transform-origin: 50% 60%;
+        will-change: transform;
+      }
+
+      .count.flash-gold {
+        animation: countFlash 0.6s var(--ease-out);
+      }
+
+      @keyframes countFlash {
+        0% {
+          color: var(--gold);
+          text-shadow: 0 4px 0 rgba(0, 0, 0, 0.35), 0 0 40px rgba(255, 196, 46, 0.9);
+        }
       }
 
       .count-label {
-        margin-top: 4px;
-        font-size: 18px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        margin-top: 2px;
+        font-size: 17px;
         font-weight: 700;
         color: var(--gold);
-      }
-
-      .rates {
-        margin-top: 6px;
-        font-size: 14px;
-        color: var(--muted);
-        font-variant-numeric: tabular-nums;
-      }
-
-      .rates b {
-        color: var(--text);
-        font-weight: 700;
-      }
-
-      .clicker {
-        position: relative;
-        width: var(--dvir-size);
-        height: var(--dvir-size);
-        margin: calc(var(--dvir-size) * 0.12) 0;
-        display: grid;
-        place-items: center;
-      }
-
-      .rays {
-        position: absolute;
-        inset: -28%;
-        border-radius: 50%;
-        background: repeating-conic-gradient(
-          from 0deg,
-          rgba(255, 210, 90, 0.2) 0deg 9deg,
-          transparent 9deg 22.5deg
-        );
-        -webkit-mask: radial-gradient(circle, #000 30%, transparent 70%);
-        mask: radial-gradient(circle, #000 30%, transparent 70%);
-        animation: spin 40s linear infinite;
-        pointer-events: none;
-      }
-
-      .glow {
-        position: absolute;
-        inset: -6%;
-        border-radius: 50%;
-        background: radial-gradient(circle, rgba(255, 196, 46, 0.45), transparent 65%);
-        pointer-events: none;
-      }
-
-      @keyframes spin {
-        to {
-          transform: rotate(360deg);
-        }
-      }
-
-      .dvir-hover {
-        width: 100%;
-        height: 100%;
-        transition: transform 0.2s ease-out;
-      }
-
-      @media (hover: hover) {
-        .clicker:hover .dvir-hover {
-          transform: scale(1.03);
-        }
-      }
-
-      .dvir {
-        position: relative;
-        width: 100%;
-        height: 100%;
-        padding: 0;
-        border: 0;
-        border-radius: 50%;
-        cursor: pointer;
-        background: radial-gradient(circle at 35% 30%, #ffe48a 0%, var(--gold) 45%, var(--gold-deep) 100%);
-        box-shadow:
-          0 0 0 7px #fff3c4,
-          0 0 0 12px #c46a00,
-          0 18px 40px rgba(0, 0, 0, 0.55),
-          inset 0 -12px 30px rgba(160, 70, 0, 0.35);
-        overflow: hidden;
-        touch-action: manipulation;
-        -webkit-touch-callout: none;
-        outline: none;
-      }
-
-      .dvir:focus-visible {
-        box-shadow:
-          0 0 0 7px #fff3c4,
-          0 0 0 12px #c46a00,
-          0 0 0 17px var(--cyan),
-          0 18px 40px rgba(0, 0, 0, 0.55);
-      }
-
-      .dvir img {
-        width: 100%;
-        height: 100%;
-        display: block;
-        pointer-events: none;
-        -webkit-user-drag: none;
-        user-select: none;
-      }
-
-      .combo {
-        position: absolute;
-        top: -4%;
-        inset-inline-start: 50%;
-        translate: 50% 0;
-        padding: 6px 14px;
-        border-radius: 999px;
-        background: linear-gradient(180deg, var(--pink), #d6286a);
-        box-shadow: 0 6px 18px rgba(255, 79, 139, 0.5);
-        font-weight: 900;
-        font-size: 18px;
-        white-space: nowrap;
-        opacity: 0;
-        scale: 0.6;
-        transition: opacity 0.2s, scale 0.2s cubic-bezier(0.3, 1.6, 0.5, 1);
-        pointer-events: none;
-        z-index: 2;
-      }
-
-      .combo.show {
-        opacity: 1;
-        scale: 1;
-      }
-
-      .hint {
-        margin: 0;
-        font-size: 18px;
-        font-weight: 700;
-        color: var(--muted);
-        transition: opacity 0.4s;
-        animation: bob 1.6s ease-in-out infinite;
-      }
-
-      .hint.gone {
-        opacity: 0;
-      }
-
-      @keyframes bob {
-        50% {
-          transform: translateY(-5px);
-        }
-      }
-
-      /* ---------- shop ---------- */
-      .shop {
-        background: var(--panel);
-        border: 1px solid var(--panel-line);
-        border-radius: var(--radius);
-        padding: 16px;
-        display: flex;
-        flex-direction: column;
-        gap: 12px;
-        backdrop-filter: blur(6px);
-      }
-
-      .shop h2 {
-        margin: 0;
-        font-size: 22px;
-        font-weight: 800;
-      }
-
-      .items {
-        list-style: none;
-        margin: 0;
-        padding: 0;
-        display: flex;
-        flex-direction: column;
-        gap: 8px;
-      }
-
-      .item {
-        width: 100%;
-        display: grid;
-        grid-template-columns: 52px 1fr auto;
-        align-items: center;
-        gap: 12px;
-        padding: 10px 12px;
-        text-align: start;
-        border-radius: 14px;
-        border: 1px solid var(--panel-line);
-        background: rgba(255, 255, 255, 0.05);
-        cursor: pointer;
-        transition: background 0.15s, transform 0.12s, opacity 0.2s, border-color 0.15s;
-      }
-
-      .item:not(:disabled):hover {
-        background: rgba(255, 255, 255, 0.11);
-        border-color: rgba(255, 196, 46, 0.5);
-      }
-
-      .item:not(:disabled):active {
-        transform: scale(0.97);
-      }
-
-      .item:disabled {
-        cursor: not-allowed;
-        opacity: 0.5;
-      }
-
-      .item.bought {
-        animation: bought 0.35s ease-out;
-      }
-
-      @keyframes bought {
-        0% {
-          background: rgba(124, 255, 107, 0.35);
-        }
-      }
-
-      .item-icon {
-        width: 52px;
-        height: 52px;
-        border-radius: 12px;
-        display: grid;
-        place-items: center;
-        font-size: 30px;
-        background: rgba(0, 0, 0, 0.25);
-      }
-
-      .item-name {
-        display: block;
-        font-weight: 700;
-        font-size: 16px;
-      }
-
-      .item-desc {
-        display: block;
-        font-size: 13px;
-        color: var(--muted);
-        margin-top: 1px;
-      }
-
-      .item-cost {
-        display: inline-flex;
-        align-items: center;
-        gap: 5px;
-        margin-top: 4px;
-        font-weight: 700;
-        font-size: 14px;
-        color: var(--gold);
-        font-variant-numeric: tabular-nums;
-      }
-
-      .item:disabled .item-cost {
-        color: #ff8a8a;
       }
 
       .coin {
@@ -448,36 +233,795 @@
       }
 
       .count-label .coin {
-        width: 26px;
-        height: 26px;
-        margin-inline-end: 6px;
+        width: 24px;
+        height: 24px;
       }
 
-      .item-owned {
+      .rates {
+        margin-top: 4px;
+        font-size: 13.5px;
+        color: var(--muted);
+        font-variant-numeric: tabular-nums;
+      }
+
+      .rates b {
+        color: var(--text);
+        font-weight: 700;
+      }
+
+      .rates .stars-rate {
+        color: #ffe066;
+      }
+
+      .rates.boosted b {
+        color: var(--gold);
+      }
+
+      .clicker {
+        --size: var(--dvir-size);
+        margin: calc(var(--dvir-size) * 0.1) 0 calc(var(--dvir-size) * 0.06);
+        display: grid;
+        place-items: center;
+      }
+
+      /* Shared by the big clicker and the skin thumbnails (frames restyle these vars). */
+      .clicker,
+      .skin-preview {
+        --fill: radial-gradient(circle at 35% 30%, #ffe48a 0%, #ffc42e 45%, #ff9a1f 100%);
+        --ring-inner: #fff3c4;
+        --ring-outer: #c46a00;
+        --glow: rgba(255, 196, 46, 0.45);
+        --rays: rgba(255, 210, 90, 0.2);
+        position: relative;
+        width: var(--size);
+        height: var(--size);
+      }
+
+      .skin-preview {
+        --size: 64px;
+        flex: none;
+      }
+
+      .rays {
+        position: absolute;
+        inset: -28%;
+        border-radius: 50%;
+        pointer-events: none;
+        background: repeating-conic-gradient(from 0deg, var(--rays) 0deg 9deg, transparent 9deg 22.5deg);
+        -webkit-mask: radial-gradient(circle, #000 30%, transparent 70%);
+        mask: radial-gradient(circle, #000 30%, transparent 70%);
+        animation: spin 40s linear infinite;
+      }
+
+      .glow {
+        position: absolute;
+        inset: -6%;
+        border-radius: 50%;
+        background: radial-gradient(circle, var(--glow), transparent 65%);
+        pointer-events: none;
+        transition: transform 0.3s var(--ease-out), opacity 0.3s;
+      }
+
+      .clicker.boosted .glow {
+        transform: scale(1.18);
+        animation: glowPulse 0.9s ease-in-out infinite;
+      }
+
+      @keyframes glowPulse {
+        50% {
+          opacity: 0.6;
+        }
+      }
+
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      .dvir-spin,
+      .dvir-body {
+        position: relative;
+        width: 100%;
+        height: 100%;
+      }
+
+      .dvir-spin.intro {
+        animation: introPop 0.7s var(--ease-spring) both;
+      }
+
+      @keyframes introPop {
+        0% {
+          transform: scale(0.2) rotate(-25deg);
+          opacity: 0;
+        }
+        100% {
+          transform: none;
+          opacity: 1;
+        }
+      }
+
+      .dvir-spin.reborn {
+        animation: reborn 1.6s cubic-bezier(0.5, 0, 0.2, 1) both;
+      }
+
+      @keyframes reborn {
+        0% {
+          transform: none;
+        }
+        40% {
+          transform: rotate(540deg) scale(0);
+          filter: brightness(3);
+        }
+        58% {
+          transform: rotate(540deg) scale(0);
+          filter: brightness(3);
+        }
+        82% {
+          transform: rotate(735deg) scale(1.12);
+          filter: brightness(1.4);
+        }
+        100% {
+          transform: rotate(720deg) scale(1);
+          filter: none;
+        }
+      }
+
+      @media (hover: hover) {
+        .clicker:hover .dvir-body .dvir {
+          filter: brightness(1.04);
+        }
+      }
+
+      .dvir {
+        position: relative;
+        z-index: 1;
+        display: block;
+        width: 100%;
+        height: 100%;
+        padding: 0;
+        border: 0;
+        border-radius: 50%;
+        cursor: pointer;
+        background: var(--fill);
+        overflow: hidden;
+        box-shadow:
+          0 0 0 calc(var(--size) * 0.017) var(--ring-inner),
+          0 0 0 calc(var(--size) * 0.03) var(--ring-outer),
+          0 calc(var(--size) * 0.045) calc(var(--size) * 0.1) rgba(0, 0, 0, 0.55),
+          inset 0 calc(var(--size) * -0.03) calc(var(--size) * 0.075) rgba(0, 0, 0, 0.25);
+        touch-action: manipulation;
+        -webkit-touch-callout: none;
+        transition: filter 0.2s;
+      }
+
+      .dvir:focus-visible {
+        outline: 3px solid var(--cyan);
+        outline-offset: calc(var(--size) * 0.045);
+      }
+
+      .dvir img {
+        width: 100%;
+        height: 100%;
+        display: block;
+        pointer-events: none;
+      }
+
+      .accessory {
+        position: absolute;
+        inset: 0;
+        z-index: 3;
+        pointer-events: none;
+      }
+
+      .accessory svg {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        overflow: visible;
+      }
+
+      .clicker .accessory.pop {
+        animation: accPop 0.5s var(--ease-spring);
+      }
+
+      @keyframes accPop {
+        0% {
+          transform: translateY(-14%) scale(0.6);
+          opacity: 0;
+        }
+      }
+
+      .combo {
+        position: absolute;
+        top: -6%;
+        left: 50%;
+        transform: translateX(-50%) scale(0.6);
+        z-index: 4;
+        padding: 5px 13px;
+        border-radius: 999px;
+        background: linear-gradient(180deg, var(--pink), #d6286a);
+        box-shadow: 0 6px 18px rgba(255, 79, 139, 0.5);
+        font-weight: 900;
+        font-size: 17px;
+        white-space: nowrap;
+        opacity: 0;
+        transition: opacity 0.2s, transform 0.25s var(--ease-spring);
+        pointer-events: none;
+      }
+
+      .combo.show {
+        opacity: 1;
+        transform: translateX(-50%) scale(1);
+      }
+
+      .combo.hot {
+        background: linear-gradient(180deg, #ffb020, #ff5a1f);
+        box-shadow: 0 6px 22px rgba(255, 120, 30, 0.6);
+      }
+
+      /* One fixed-height row under Dvir: the hint first, buffs later. No layout jumps. */
+      .status-row {
+        position: relative;
+        height: 30px;
+        width: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .hint {
+        position: absolute;
+        margin: 0;
+        font-size: 16px;
+        font-weight: 700;
+        color: var(--muted);
+        transition: opacity 0.4s;
+        animation: bob 1.6s ease-in-out infinite;
+      }
+
+      .hint.gone {
+        opacity: 0;
+        pointer-events: none;
+      }
+
+      @keyframes bob {
+        50% {
+          transform: translateY(-4px);
+        }
+      }
+
+      .buffs {
+        display: flex;
+        gap: 6px;
+        justify-content: center;
+      }
+
+      .buff {
+        position: relative;
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        padding: 4px 11px 5px;
+        border-radius: 999px;
+        font-size: 13px;
+        font-weight: 800;
+        color: #2b1400;
+        background: linear-gradient(180deg, #ffe48a, var(--gold));
+        box-shadow: 0 4px 14px rgba(255, 196, 46, 0.45);
+        overflow: hidden;
+        animation: buffIn 0.4s var(--ease-spring);
+        font-variant-numeric: tabular-nums;
+      }
+
+      .buff.click {
+        color: #fff;
+        background: linear-gradient(180deg, #ff7ab0, var(--pink));
+        box-shadow: 0 4px 14px rgba(255, 79, 139, 0.5);
+      }
+
+      .buff-bar {
+        position: absolute;
+        right: 0;
+        bottom: 0;
+        height: 3px;
+        background: rgba(0, 0, 0, 0.35);
+        width: 100%;
+        transform-origin: right;
+      }
+
+      @keyframes buffIn {
+        0% {
+          transform: scale(0.4);
+          opacity: 0;
+        }
+      }
+
+      /* ---------- panel ---------- */
+      .panel {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+        min-width: 0;
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        box-shadow: 0 20px 50px rgba(0, 0, 0, 0.35);
+        overflow: hidden;
+      }
+
+      .tabs {
+        position: relative;
+        display: grid;
+        grid-template-columns: repeat(5, 1fr);
+        padding: 6px;
+        border-bottom: 1px solid var(--line);
+        flex: none;
+      }
+
+      .tab {
+        position: relative;
+        z-index: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 2px;
+        padding: 7px 0 6px;
+        border: 0;
+        background: none;
+        color: var(--muted);
+        font-size: 11.5px;
+        font-weight: 700;
+        border-radius: 14px;
+        cursor: pointer;
+        transition: color 0.2s;
+        min-width: 0;
+      }
+
+      .tab-icon {
+        font-size: 21px;
+        line-height: 1.1;
+        transition: transform 0.35s var(--ease-spring);
+      }
+
+      .tab.active {
+        color: var(--text);
+      }
+
+      .tab.active .tab-icon {
+        transform: translateY(-1px) scale(1.15);
+      }
+
+      .tab-label {
+        white-space: nowrap;
+      }
+
+      .tab .dot {
+        position: absolute;
+        top: 4px;
+        left: calc(50% + 8px);
+        min-width: 10px;
+        height: 10px;
+        border-radius: 999px;
+        background: var(--red);
+        box-shadow: 0 0 0 2px rgba(22, 16, 48, 0.9), 0 0 10px rgba(255, 93, 108, 0.8);
+        transform: scale(0);
+        transition: transform 0.3s var(--ease-spring);
+      }
+
+      .tab.has-dot .dot {
+        transform: scale(1);
+      }
+
+      .tab-indicator {
+        position: absolute;
+        z-index: 0;
+        top: 6px;
+        bottom: 6px;
+        left: 0;
+        border-radius: 14px;
+        background: rgba(255, 255, 255, 0.09);
+        box-shadow: inset 0 0 0 1px rgba(255, 196, 46, 0.35);
+        transition: transform 0.4s var(--ease-out), width 0.4s var(--ease-out);
+      }
+
+      .views {
+        position: relative;
+        flex: 1;
+        min-height: 0;
+      }
+
+      .view {
+        position: absolute;
+        inset: 0;
+        overflow-y: auto;
+        overscroll-behavior: contain;
+        padding: 14px;
+        opacity: 0;
+        visibility: hidden;
+        transform: translateY(10px);
+        transition:
+          opacity 0.2s,
+          transform 0.35s var(--ease-out),
+          visibility 0s 0.35s;
+        scrollbar-width: thin;
+        scrollbar-color: rgba(255, 255, 255, 0.15) transparent;
+      }
+
+      .view.active {
+        opacity: 1;
+        visibility: visible;
+        transform: none;
+        transition:
+          opacity 0.25s,
+          transform 0.35s var(--ease-out),
+          visibility 0s;
+      }
+
+      .view-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        margin-bottom: 12px;
+      }
+
+      .view h2 {
+        margin: 0;
+        font-size: 21px;
+        font-weight: 800;
+      }
+
+      .view h3 {
+        margin: 18px 0 10px;
+        font-size: 16px;
+        font-weight: 800;
+        color: var(--muted);
+      }
+
+      .view h3:first-child {
+        margin-top: 0;
+      }
+
+      .sub {
+        margin: -6px 0 12px;
+        font-size: 13px;
+        color: var(--muted);
+      }
+
+      /* Segmented ×1 / ×10 / MAX */
+      .seg {
+        position: relative;
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        padding: 3px;
+        border-radius: 12px;
+        background: rgba(0, 0, 0, 0.3);
+        border: 1px solid var(--line);
+        direction: ltr;
+      }
+
+      .seg button {
+        position: relative;
+        z-index: 1;
+        border: 0;
+        background: none;
+        padding: 5px 11px;
+        font-size: 13px;
+        font-weight: 800;
+        color: var(--muted);
+        cursor: pointer;
+        transition: color 0.2s;
+      }
+
+      .seg button.active {
+        color: #2b1400;
+      }
+
+      .seg-thumb {
+        position: absolute;
+        top: 3px;
+        bottom: 3px;
+        left: 3px;
+        width: calc((100% - 6px) / 3);
+        border-radius: 9px;
+        background: linear-gradient(180deg, #ffe48a, var(--gold));
+        transition: transform 0.35s var(--ease-out);
+      }
+
+      /* Building + upgrade cards */
+      .items,
+      .upgrades {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      .card {
+        position: relative;
+        width: 100%;
+        display: grid;
+        grid-template-columns: 50px 1fr auto;
+        align-items: center;
+        gap: 12px;
+        padding: 9px 12px;
+        text-align: start;
+        border-radius: 15px;
+        border: 1px solid var(--line);
+        background: rgba(255, 255, 255, 0.045);
+        cursor: pointer;
+        overflow: hidden;
+        transition:
+          background 0.2s,
+          border-color 0.2s,
+          opacity 0.25s,
+          transform 0.15s var(--ease-out);
+      }
+
+      .card:not(:disabled):active {
+        transform: scale(0.97);
+      }
+
+      .card.can {
+        border-color: rgba(255, 196, 46, 0.45);
+        background: linear-gradient(90deg, rgba(255, 196, 46, 0.1), rgba(255, 255, 255, 0.05));
+      }
+
+      /* A light sweep across cards you can afford. */
+      .card.can::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(105deg, transparent 35%, rgba(255, 255, 255, 0.12) 50%, transparent 65%);
+        transform: translateX(-120%);
+        animation: sweep 3.2s ease-in-out infinite;
+        pointer-events: none;
+      }
+
+      @keyframes sweep {
+        60%,
+        100% {
+          transform: translateX(120%);
+        }
+      }
+
+      @media (hover: hover) {
+        .card:not(:disabled):hover {
+          background: rgba(255, 255, 255, 0.1);
+        }
+      }
+
+      .card:disabled {
+        cursor: default;
+        opacity: 0.5;
+      }
+
+      .card.bought {
+        animation: bought 0.45s var(--ease-out);
+      }
+
+      @keyframes bought {
+        0% {
+          background: rgba(124, 255, 107, 0.35);
+          transform: scale(1.03);
+        }
+      }
+
+      .card.deny {
+        animation: deny 0.35s;
+      }
+
+      @keyframes deny {
+        20%,
+        60% {
+          transform: translateX(-5px);
+        }
+        40%,
+        80% {
+          transform: translateX(5px);
+        }
+      }
+
+      .card-icon {
+        position: relative;
+        width: 50px;
+        height: 50px;
+        border-radius: 13px;
+        display: grid;
+        place-items: center;
+        font-size: 28px;
+        background: rgba(0, 0, 0, 0.28);
+      }
+
+      .tier {
+        position: absolute;
+        bottom: -4px;
+        right: -4px;
+        min-width: 20px;
+        height: 20px;
+        padding: 0 4px;
+        border-radius: 999px;
+        font-size: 11px;
+        font-weight: 900;
+        line-height: 20px;
+        text-align: center;
+        color: #2b1400;
+        background: linear-gradient(180deg, #ffe48a, var(--gold));
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+      }
+
+      .card-name {
+        display: block;
+        font-weight: 700;
+        font-size: 15.5px;
+      }
+
+      .card-desc {
+        display: block;
+        font-size: 12.5px;
+        color: var(--muted);
+        margin-top: 1px;
+      }
+
+      .card-cost {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        margin-top: 3px;
+        font-weight: 800;
+        font-size: 14px;
+        color: var(--gold);
+        font-variant-numeric: tabular-nums;
+      }
+
+      .card:not(.can) .card-cost {
+        color: #ff8a8a;
+      }
+
+      .card-cost .amt {
+        color: var(--muted);
+        font-weight: 700;
+        font-size: 12px;
+      }
+
+      .card-owned {
         font-size: 26px;
         font-weight: 900;
-        color: rgba(255, 255, 255, 0.3);
+        color: rgba(255, 255, 255, 0.28);
         min-width: 2ch;
         text-align: center;
         font-variant-numeric: tabular-nums;
       }
 
-      .item.locked .item-icon {
-        filter: brightness(0) opacity(0.5);
+      .card-owned.pop {
+        animation: ownedPop 0.45s var(--ease-spring);
+      }
+
+      @keyframes ownedPop {
+        0% {
+          transform: scale(1.7);
+          color: var(--gold);
+        }
+      }
+
+      .card.locked .card-icon {
+        filter: brightness(0) opacity(0.45);
+      }
+
+      .empty {
+        margin: 24px 8px;
+        text-align: center;
+        color: var(--muted);
+        font-size: 14px;
+        line-height: 1.6;
+      }
+
+      .empty b {
+        display: block;
+        font-size: 34px;
+        margin-bottom: 4px;
+      }
+
+      /* Achievements */
+      .progress {
+        height: 10px;
+        border-radius: 999px;
+        background: rgba(0, 0, 0, 0.35);
+        overflow: hidden;
+        margin-bottom: 14px;
+      }
+
+      .progress > i {
+        display: block;
+        height: 100%;
+        width: 0;
+        border-radius: inherit;
+        background: linear-gradient(90deg, var(--gold-deep), var(--gold), #fff3c4);
+        transition: width 0.6s var(--ease-out);
+      }
+
+      .ach-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(58px, 1fr));
+        gap: 8px;
+      }
+
+      .badge {
+        position: relative;
+        aspect-ratio: 1;
+        display: grid;
+        place-items: center;
+        font-size: 27px;
+        border-radius: 14px;
+        border: 1px solid var(--line);
+        background: rgba(0, 0, 0, 0.25);
+        cursor: pointer;
+        transition: transform 0.2s var(--ease-spring), border-color 0.2s;
+      }
+
+      .badge.got {
+        background: radial-gradient(circle at 50% 35%, rgba(255, 196, 46, 0.35), rgba(255, 196, 46, 0.06) 70%);
+        border-color: rgba(255, 196, 46, 0.5);
+      }
+
+      .badge:not(.got) .b-ico {
+        filter: grayscale(1) brightness(0.55);
+        opacity: 0.6;
+      }
+
+      .badge.selected {
+        transform: scale(1.08);
+        border-color: var(--cyan);
+      }
+
+      .badge.fresh::after {
+        content: "";
+        position: absolute;
+        inset: -3px;
+        border-radius: 16px;
+        border: 2px solid var(--gold);
+        animation: freshRing 1.4s ease-out infinite;
+      }
+
+      @keyframes freshRing {
+        100% {
+          transform: scale(1.18);
+          opacity: 0;
+        }
+      }
+
+      .ach-detail {
+        margin-top: 12px;
+        padding: 12px 14px;
+        border-radius: 14px;
+        background: rgba(0, 0, 0, 0.25);
+        min-height: 62px;
+        font-size: 14px;
+        color: var(--muted);
+      }
+
+      .ach-detail b {
+        display: block;
+        color: var(--text);
+        font-size: 16px;
+        margin-bottom: 2px;
       }
 
       .stats {
         display: grid;
         grid-template-columns: 1fr 1fr;
         gap: 8px;
-        margin-top: auto;
-        padding-top: 4px;
       }
 
       .stat {
         padding: 10px 12px;
         border-radius: 12px;
-        background: rgba(0, 0, 0, 0.2);
+        background: rgba(0, 0, 0, 0.22);
       }
 
       .stat span {
@@ -487,12 +1031,13 @@
       }
 
       .stat b {
-        font-size: 17px;
+        font-size: 16px;
         font-variant-numeric: tabular-nums;
       }
 
       .reset {
-        align-self: center;
+        display: block;
+        margin: 18px auto 4px;
         border: 0;
         background: none;
         color: var(--muted);
@@ -502,48 +1047,559 @@
         padding: 6px;
       }
 
-      .reset:hover {
-        color: #ff8a8a;
+      /* Skins */
+      .skin-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(98px, 1fr));
+        gap: 10px;
+      }
+
+      .skin-card {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 6px;
+        padding: 14px 6px 10px;
+        border-radius: 16px;
+        border: 1px solid var(--line);
+        background: rgba(255, 255, 255, 0.045);
+        cursor: pointer;
+        transition: transform 0.2s var(--ease-spring), border-color 0.2s, background 0.2s;
+      }
+
+      .skin-card:active {
+        transform: scale(0.95);
+      }
+
+      .skin-card.equipped {
+        border-color: var(--gold);
+        background: rgba(255, 196, 46, 0.1);
+      }
+
+      .skin-card.equipped::before {
+        content: "✓";
+        position: absolute;
+        top: 6px;
+        right: 8px;
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        background: var(--gold);
+        color: #2b1400;
+        font-size: 12px;
+        font-weight: 900;
+        line-height: 20px;
+        text-align: center;
+      }
+
+      .skin-card.locked .skin-preview {
+        filter: grayscale(0.85) brightness(0.6);
+      }
+
+      .skin-name {
+        font-size: 13.5px;
+        font-weight: 700;
+      }
+
+      .skin-state {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        min-height: 18px;
+        font-size: 11.5px;
+        font-weight: 700;
+        color: var(--muted);
+        text-align: center;
+        line-height: 1.3;
+      }
+
+      .skin-card.can .skin-state {
+        color: var(--gold);
+      }
+
+      .skin-preview .dvir {
+        cursor: inherit;
+        pointer-events: none;
+      }
+
+      /* Rebirth */
+      .rebirth {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+        gap: 6px;
+        padding-top: 6px;
+      }
+
+      .big-star {
+        font-size: 64px;
+        line-height: 1;
+        filter: drop-shadow(0 0 22px rgba(255, 220, 90, 0.75));
+        animation: starFloat 3s ease-in-out infinite;
+      }
+
+      @keyframes starFloat {
+        50% {
+          transform: translateY(-6px) rotate(8deg) scale(1.05);
+        }
+      }
+
+      .reb-stars {
+        font-size: 30px;
+        font-weight: 900;
+        color: #ffe066;
+        font-variant-numeric: tabular-nums;
+      }
+
+      .reb-bonus {
+        font-size: 14px;
+        color: var(--muted);
+      }
+
+      .reb-box {
+        width: 100%;
+        margin-top: 10px;
+        padding: 14px;
+        border-radius: 16px;
+        background: rgba(0, 0, 0, 0.25);
+        text-align: start;
+      }
+
+      .reb-gain {
+        font-size: 17px;
+        font-weight: 800;
+        margin-bottom: 8px;
+      }
+
+      .reb-gain b {
+        color: #ffe066;
+      }
+
+      .reb-box .progress {
+        margin: 6px 0 4px;
+      }
+
+      .reb-next {
+        font-size: 12.5px;
+        color: var(--muted);
+      }
+
+      .reb-info {
+        width: 100%;
+        margin: 10px 0 0;
+        padding: 0 4px;
+        list-style: none;
+        font-size: 13px;
+        color: var(--muted);
+        text-align: start;
+        line-height: 1.8;
+      }
+
+      .btn {
+        border: 0;
+        border-radius: 14px;
+        padding: 12px 20px;
+        font-size: 16px;
+        font-weight: 800;
+        cursor: pointer;
+        transition: transform 0.15s var(--ease-out), opacity 0.2s, filter 0.2s;
+      }
+
+      .btn:active:not(:disabled) {
+        transform: scale(0.95);
+      }
+
+      .btn:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+        filter: grayscale(0.6);
+      }
+
+      .btn.primary {
+        color: #2b1400;
+        background: linear-gradient(180deg, #fff3c4, var(--gold) 60%, var(--gold-deep));
+        box-shadow: 0 6px 20px rgba(255, 170, 30, 0.4), inset 0 -3px 0 rgba(150, 70, 0, 0.35);
+      }
+
+      .btn.star {
+        width: 100%;
+        margin-top: 12px;
+        color: #1d0b3a;
+        background: linear-gradient(180deg, #fff6b0, #ffd84a 50%, #ffb020);
+        box-shadow: 0 6px 24px rgba(255, 216, 74, 0.5), inset 0 -3px 0 rgba(150, 90, 0, 0.35);
+      }
+
+      .btn.ghost {
+        background: rgba(255, 255, 255, 0.08);
+        color: var(--text);
+      }
+
+      .btn.danger {
+        background: linear-gradient(180deg, #ff8a95, var(--red));
+        color: #fff;
       }
 
       /* ---------- overlays ---------- */
-      #fx {
+      .toast,
+      .ach-banner {
         position: fixed;
-        inset: 0;
-        width: 100%;
-        height: 100%;
+        top: max(14px, env(safe-area-inset-top));
+        left: 50%;
+        z-index: 20;
+        max-width: calc(100vw - 32px);
         pointer-events: none;
-        z-index: 10;
+        transform: translate(-50%, calc(-100% - 60px));
+        transition: transform 0.5s var(--ease-spring);
       }
 
       .toast {
-        position: fixed;
-        top: max(16px, env(safe-area-inset-top));
-        left: 50%;
-        z-index: 20;
-        /* Fully above the screen edge whatever its height (an empty toast is short). */
-        translate: -50% calc(-100% - 60px);
-        max-width: calc(100vw - 32px);
         padding: 12px 20px;
         border-radius: 16px;
         background: linear-gradient(180deg, #fff3c4, var(--gold));
         color: #3a1d00;
         font-weight: 800;
-        font-size: 17px;
+        font-size: 16px;
         text-align: center;
         box-shadow: 0 12px 30px rgba(0, 0, 0, 0.45);
-        transition: translate 0.45s cubic-bezier(0.3, 1.4, 0.5, 1);
+      }
+
+      .toast.show,
+      .ach-banner.show {
+        transform: translate(-50%, 0);
+      }
+
+      .ach-banner {
+        z-index: 21;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        top: max(6px, env(safe-area-inset-top));
+        min-width: min(300px, calc(100vw - 24px));
+        max-width: calc(100vw - 24px);
+        padding: 6px 14px 6px 8px;
+        border-radius: 16px;
+        background: linear-gradient(135deg, #2c1d5e, #1a1238);
+        border: 1px solid rgba(255, 196, 46, 0.55);
+        box-shadow: 0 14px 34px rgba(0, 0, 0, 0.5), 0 0 30px rgba(255, 196, 46, 0.2);
+        overflow: hidden;
+      }
+
+      .ach-banner::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(105deg, transparent 30%, rgba(255, 255, 255, 0.18) 50%, transparent 70%);
+        transform: translateX(-120%);
+      }
+
+      .ach-banner.show::after {
+        animation: sweepOnce 1.1s 0.35s ease-out forwards;
+      }
+
+      @keyframes sweepOnce {
+        to {
+          transform: translateX(120%);
+        }
+      }
+
+      .ach-banner .a-ico {
+        width: 38px;
+        height: 38px;
+        border-radius: 11px;
+        display: grid;
+        place-items: center;
+        font-size: 22px;
+        background: radial-gradient(circle, rgba(255, 196, 46, 0.4), rgba(255, 196, 46, 0.08));
+        flex: none;
+      }
+
+      .ach-banner b {
+        display: block;
+        font-size: 14.5px;
+        line-height: 1.3;
+      }
+
+      .ach-banner b small {
+        font-size: inherit;
+        color: var(--gold);
+      }
+
+      .ach-banner span {
+        display: block;
+        font-size: 11.5px;
+        line-height: 1.3;
+        color: var(--muted);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .golden {
+        position: fixed;
+        top: 0;
+        left: 0;
+        z-index: 15;
+        width: 86px;
+        height: 86px;
+        margin: -43px 0 0 -43px;
+        padding: 0;
+        border: 0;
+        border-radius: 50%;
+        background: none;
+        cursor: pointer;
+        touch-action: manipulation;
+        will-change: transform;
+      }
+
+      .golden::before {
+        content: "";
+        position: absolute;
+        inset: -30%;
+        border-radius: 50%;
+        background: radial-gradient(circle, rgba(255, 225, 120, 0.75), rgba(255, 196, 46, 0.25) 45%, transparent 70%);
+        animation: goldenGlow 1.2s ease-in-out infinite;
+      }
+
+      .golden img {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        display: block;
+        border-radius: 50%;
+        pointer-events: none;
+        filter: drop-shadow(0 6px 12px rgba(0, 0, 0, 0.45));
+      }
+
+      @keyframes goldenGlow {
+        50% {
+          transform: scale(1.15);
+          opacity: 0.7;
+        }
+      }
+
+      .rain-coin {
+        position: fixed;
+        top: 0;
+        left: 0;
+        z-index: 14;
+        width: 52px;
+        height: 52px;
+        margin: -26px 0 0 -26px;
+        padding: 0;
+        border: 0;
+        background: none;
+        cursor: pointer;
+        touch-action: manipulation;
+        will-change: transform;
+      }
+
+      .rain-coin img {
+        width: 100%;
+        height: 100%;
+        display: block;
+        pointer-events: none;
+        filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.4));
+      }
+
+      .modal {
+        position: fixed;
+        inset: 0;
+        z-index: 30;
+        display: grid;
+        place-items: center;
+        padding: 20px;
+        background: rgba(8, 5, 20, 0.6);
+        -webkit-backdrop-filter: blur(6px);
+        backdrop-filter: blur(6px);
+        opacity: 0;
+        visibility: hidden;
+        transition: opacity 0.25s, visibility 0s 0.25s;
+      }
+
+      .modal.show {
+        opacity: 1;
+        visibility: visible;
+        transition: opacity 0.25s, visibility 0s;
+      }
+
+      .modal-card {
+        width: min(360px, 100%);
+        padding: 24px 20px 18px;
+        border-radius: 24px;
+        text-align: center;
+        background: linear-gradient(180deg, #2a1d5c, #1a1238);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        box-shadow: 0 30px 70px rgba(0, 0, 0, 0.6);
+        transform: scale(0.85) translateY(20px);
+        transition: transform 0.45s var(--ease-spring);
+      }
+
+      .modal.show .modal-card {
+        transform: none;
+      }
+
+      .modal-icon {
+        font-size: 52px;
+        line-height: 1;
+      }
+
+      .modal-card h3 {
+        margin: 10px 0 6px;
+        font-size: 21px;
+      }
+
+      .modal-card p {
+        margin: 0 0 18px;
+        color: var(--muted);
+        font-size: 14.5px;
+        line-height: 1.6;
+      }
+
+      .modal-actions {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+      }
+
+      .flash {
+        position: fixed;
+        inset: 0;
+        z-index: 40;
+        pointer-events: none;
+        background: radial-gradient(circle at 50% 45%, #fff 0%, #fff6c9 35%, rgba(255, 220, 120, 0) 75%);
+        opacity: 0;
+      }
+
+      .flash.go {
+        animation: flash 1.6s ease-out;
+      }
+
+      @keyframes flash {
+        15%,
+        45% {
+          opacity: 1;
+        }
+        100% {
+          opacity: 0;
+        }
+      }
+
+      .splash {
+        position: fixed;
+        inset: 0;
+        z-index: 50;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 14px;
+        background:
+          radial-gradient(800px 600px at 50% 40%, #33236f 0%, transparent 70%),
+          var(--bg);
+        cursor: pointer;
+        transition: opacity 0.5s, transform 0.6s var(--ease-out), visibility 0s 0.6s;
+      }
+
+      .splash.out {
+        opacity: 0;
+        transform: scale(1.15);
+        visibility: hidden;
         pointer-events: none;
       }
 
-      .toast.show {
-        translate: -50% 0;
+      .splash-rays {
+        position: absolute;
+        width: 140vmax;
+        height: 140vmax;
+        top: calc(50% - 70vmax - 8vh);
+        left: calc(50% - 70vmax);
+        background: repeating-conic-gradient(from 0deg, rgba(255, 210, 90, 0.1) 0deg 8deg, transparent 8deg 20deg);
+        -webkit-mask: radial-gradient(circle, #000 10%, transparent 55%);
+        mask: radial-gradient(circle, #000 10%, transparent 55%);
+        animation: spin 50s linear infinite;
+        pointer-events: none;
       }
 
-      /* Phones (portrait): Dvir stays on screen, only the shop scrolls. */
+      .splash-coin {
+        position: relative;
+        width: min(46vw, 230px);
+        height: auto;
+        border-radius: 50%;
+        filter: drop-shadow(0 18px 40px rgba(0, 0, 0, 0.55)) drop-shadow(0 0 40px rgba(255, 196, 46, 0.45));
+        animation:
+          coinIn 1s var(--ease-spring) both,
+          coinFloat 3.2s 1s ease-in-out infinite;
+      }
+
+      @keyframes coinIn {
+        0% {
+          transform: scale(0) rotate(-200deg);
+        }
+      }
+
+      @keyframes coinFloat {
+        50% {
+          transform: translateY(-10px) rotate(4deg);
+        }
+      }
+
+      .splash .logo {
+        position: relative;
+        font-size: clamp(40px, 11vw, 72px);
+        animation: rise 0.8s 0.35s var(--ease-out) both;
+      }
+
+      .splash-tap {
+        position: relative;
+        margin: 0;
+        font-size: 18px;
+        font-weight: 700;
+        color: var(--gold-light);
+        animation:
+          rise 0.8s 0.6s var(--ease-out) both,
+          tapPulse 1.4s 1.4s ease-in-out infinite;
+      }
+
+      @keyframes rise {
+        0% {
+          opacity: 0;
+          transform: translateY(24px);
+        }
+      }
+
+      @keyframes tapPulse {
+        50% {
+          opacity: 0.45;
+          transform: scale(0.96);
+        }
+      }
+
+      /* ---------- responsive ---------- */
+      @media (min-width: 900px) {
+        :root {
+          --dvir-size: min(38vw, 50vh, 440px);
+        }
+        .app {
+          height: 100vh;
+          height: 100dvh;
+          min-height: 640px;
+          overflow: hidden;
+          overflow: clip;
+        }
+        .layout {
+          grid-template-columns: 1fr minmax(360px, 430px);
+          grid-template-rows: minmax(0, 1fr);
+          min-height: 0;
+          padding: 8px 16px 16px;
+        }
+      }
+
+      /* Phones (portrait): Dvir stays on screen; the panel fills the rest with tabs at the bottom. */
       @media (max-width: 899px) and (orientation: portrait) {
         :root {
-          --dvir-size: min(64vw, 33vh, 400px);
+          --dvir-size: min(58vw, 29vh, 380px);
         }
         .app {
           height: 100vh;
@@ -554,52 +1610,66 @@
         .layout {
           grid-template-rows: auto minmax(0, 1fr);
           min-height: 0;
-          padding-bottom: max(12px, env(safe-area-inset-bottom));
         }
-        .stage {
-          gap: 4px;
+        .tabs {
+          order: 2;
+          border-bottom: 0;
+          border-top: 1px solid var(--line);
         }
-        .clicker {
-          margin: calc(var(--dvir-size) * 0.08) 0;
-        }
-        .hint {
-          font-size: 16px;
-        }
-        .shop {
-          overflow-y: auto;
-          overscroll-behavior: contain;
+        .view {
           padding: 12px;
-          gap: 10px;
         }
-        .shop h2 {
-          font-size: 19px;
+        .ach-banner {
+          top: auto;
+          bottom: calc(max(12px, env(safe-area-inset-bottom)) + 76px);
+          transform: translate(-50%, calc(100% + 120px));
         }
-        .item {
+        .card {
           grid-template-columns: 44px 1fr auto;
           gap: 10px;
           padding: 8px 10px;
         }
-        .item-icon {
+        .card-icon {
           width: 44px;
           height: 44px;
           font-size: 25px;
         }
       }
 
+      /* Landscape phones and other short, narrow screens: just scroll the page. */
+      @media (max-width: 899px) and (orientation: landscape) {
+        .views {
+          height: 70vh;
+          min-height: 320px;
+        }
+      }
+
       @media (prefers-reduced-motion: reduce) {
         .rays,
-        .hint {
+        .hint,
+        .splash-rays,
+        .splash-coin,
+        .big-star,
+        .card.can::after,
+        .golden::before,
+        .clicker.boosted .glow {
           animation: none;
+        }
+        .dvir-spin.reborn {
+          animation-duration: 0.01s;
         }
       }
     </style>
   </head>
   <body>
+    <canvas id="bg" aria-hidden="true"></canvas>
+
     <div class="app" id="app">
-      <header>
-        <h1>Dvir Clicker</h1>
+      <header class="topbar">
+        <h1 class="logo">Dvir Clicker</h1>
         <div class="toggles">
-          <button class="toggle" id="soundToggle" aria-pressed="true" title="סאונד" aria-label="סאונד">🔊</button>
+          <button class="toggle" id="musicToggle" aria-pressed="true" title="מוזיקה" aria-label="מוזיקה">🎵</button>
+          <button class="toggle" id="soundToggle" aria-pressed="true" title="צלילים" aria-label="צלילים">🔊</button>
           <button class="toggle" id="vibeToggle" aria-pressed="true" title="רטט" aria-label="רטט" hidden>📳</button>
         </div>
       </header>
@@ -609,755 +1679,144 @@
           <div class="score">
             <div class="count" id="count">0</div>
             <div class="count-label"><img class="coin" src="./coin.png" alt="" />דבירים</div>
-            <div class="rates">
-              <b id="perClick">1</b> ללחיצה · <b id="perSec">0</b> לשנייה
+            <div class="rates" id="rates">
+              <b id="perClick">1</b> ללחיצה · <b id="perSec">0</b> לשנייה<span id="starsRate" hidden>
+                · <b class="stars-rate">⭐ <span id="starsCount">0</span></b></span>
             </div>
           </div>
 
-          <div class="clicker">
+          <div class="clicker frame-gold" id="clicker">
             <div class="rays"></div>
             <div class="glow"></div>
             <div class="combo" id="combo"></div>
-            <div class="dvir-hover">
-              <button class="dvir" id="dvir" aria-label="ללחוץ על דביר">
-                <img src="./dvir.webp" alt="" width="720" height="720" draggable="false" />
-              </button>
+            <div class="dvir-spin" id="dvirSpin">
+              <div class="dvir-body" id="dvirBody">
+                <button class="dvir" id="dvir" aria-label="ללחוץ על דביר">
+                  <img src="./dvir.webp" alt="" width="720" height="720" draggable="false" />
+                </button>
+                <div class="accessory" id="accessory"></div>
+              </div>
             </div>
           </div>
 
-          <p class="hint" id="hint">לחצו על דביר! 👆</p>
+          <div class="status-row">
+            <p class="hint" id="hint">לחצו על דביר! 👆</p>
+            <div class="buffs" id="buffs" aria-live="polite"></div>
+          </div>
         </section>
 
-        <aside class="shop">
-          <h2>🛒 חנות שדרוגים</h2>
-          <ul class="items" id="items"></ul>
-          <div class="stats">
-            <div class="stat"><span>סה״כ לחיצות</span><b id="statClicks">0</b></div>
-            <div class="stat"><span>סה״כ דבירים שנאספו</span><b id="statEarned">0</b></div>
+        <section class="panel">
+          <nav class="tabs" id="tabs" role="tablist">
+            <button class="tab active" data-tab="shop" role="tab" aria-selected="true">
+              <span class="tab-icon">🛒</span><span class="tab-label">חנות</span><span class="dot"></span>
+            </button>
+            <button class="tab" data-tab="upgrades" role="tab" aria-selected="false">
+              <span class="tab-icon">⚡</span><span class="tab-label">שדרוגים</span><span class="dot"></span>
+            </button>
+            <button class="tab" data-tab="achievements" role="tab" aria-selected="false">
+              <span class="tab-icon">🏆</span><span class="tab-label">הישגים</span><span class="dot"></span>
+            </button>
+            <button class="tab" data-tab="skins" role="tab" aria-selected="false">
+              <span class="tab-icon">🎨</span><span class="tab-label">סקינים</span><span class="dot"></span>
+            </button>
+            <button class="tab" data-tab="rebirth" role="tab" aria-selected="false">
+              <span class="tab-icon">🌟</span><span class="tab-label">לידה מחדש</span><span class="dot"></span>
+            </button>
+            <span class="tab-indicator" id="tabIndicator"></span>
+          </nav>
+
+          <div class="views">
+            <div class="view active" id="view-shop" role="tabpanel">
+              <div class="view-head">
+                <h2>חנות</h2>
+                <div class="seg" id="buyAmount" role="group" aria-label="כמות לקנייה">
+                  <button data-amt="1">×1</button><button data-amt="10">×10</button><button data-amt="max">MAX</button>
+                  <span class="seg-thumb"></span>
+                </div>
+              </div>
+              <ul class="items" id="items"></ul>
+            </div>
+
+            <div class="view" id="view-upgrades" role="tabpanel">
+              <div class="view-head"><h2>שדרוגים</h2></div>
+              <p class="sub">קנייה אחת, השפעה לתמיד (עד לידה מחדש).</p>
+              <ul class="upgrades" id="upgrades"></ul>
+              <p class="empty" id="upgradesEmpty" hidden><b>🔧</b>אין שדרוגים זמינים כרגע.<br />קונים עוד מבנים בחנות כדי לפתוח חדשים!</p>
+            </div>
+
+            <div class="view" id="view-achievements" role="tabpanel">
+              <div class="view-head">
+                <h2>הישגים</h2>
+                <span class="sub" id="achSummary" style="margin: 0"></span>
+              </div>
+              <div class="progress"><i id="achProgress"></i></div>
+              <div class="ach-grid" id="achGrid"></div>
+              <div class="ach-detail" id="achDetail">לחצו על הישג כדי לראות איך משיגים אותו.</div>
+              <h3>סטטיסטיקות</h3>
+              <div class="stats" id="stats"></div>
+              <button class="reset" id="reset">איפוס כל ההתקדמות</button>
+            </div>
+
+            <div class="view" id="view-skins" role="tabpanel">
+              <h3>מסגרות</h3>
+              <div class="skin-grid" id="frameGrid"></div>
+              <h3>אביזרים</h3>
+              <div class="skin-grid" id="accGrid"></div>
+            </div>
+
+            <div class="view" id="view-rebirth" role="tabpanel">
+              <div class="rebirth">
+                <div class="big-star">🌟</div>
+                <div class="reb-stars"><span id="rebStars">0</span> כוכבים</div>
+                <div class="reb-bonus" id="rebBonus">כל כוכב נותן +10% לייצור וללחיצות, לתמיד.</div>
+                <div class="reb-box">
+                  <div class="reb-gain">בלידה מחדש תקבלו: <b id="rebGain">0 ⭐</b></div>
+                  <div class="progress"><i id="rebProgress"></i></div>
+                  <div class="reb-next" id="rebNext"></div>
+                  <button class="btn star" id="rebirthBtn" disabled>✨ לידה מחדש</button>
+                </div>
+                <ul class="reb-info">
+                  <li>🔄 מתאפס: דבירים, מבנים ושדרוגים.</li>
+                  <li>💛 נשאר: כוכבים, הישגים וסקינים.</li>
+                  <li>🚀 עם הכוכבים מתקדמים הרבה יותר מהר.</li>
+                </ul>
+              </div>
+            </div>
           </div>
-          <button class="reset" id="reset">איפוס התקדמות</button>
-        </aside>
+        </section>
       </main>
     </div>
 
-    <canvas id="fx" dir="ltr"></canvas>
+    <canvas id="fx" dir="ltr" aria-hidden="true"></canvas>
+    <div id="goldenLayer"></div>
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
-
-    <script>
-      (() => {
-        "use strict";
-
-        // ---------------------------------------------------------------
-        // Data
-        // ---------------------------------------------------------------
-        const SAVE_KEY = "dvir-clicker-save-v1";
-        const COST_GROWTH = 1.15;
-        const OFFLINE_CAP_SECONDS = 8 * 60 * 60;
-
-        // click: added to each click. sec: added per second.
-        const UPGRADES = [
-          { id: "finger", icon: "👆", name: "אצבע מאומנת", click: 1, base: 15 },
-          { id: "auto", icon: "🤖", name: "קליקר אוטומטי", sec: 1, base: 50 },
-          { id: "clone", icon: "👯", name: "שיבוט של דביר", sec: 6, base: 400 },
-          { id: "iron", icon: "💪", name: "יד ברזל", click: 12, base: 2000 },
-          { id: "class", icon: "🏫", name: "כל הכיתה לוחצת", sec: 40, base: 5000 },
-          { id: "factory", icon: "🏭", name: "מפעל דבירים", sec: 200, base: 40000 },
-          { id: "golden", icon: "✨", name: "אצבע זהב", click: 400, base: 250000 },
-          { id: "space", icon: "🛸", name: "דביר בחלל", sec: 1200, base: 400000 },
-          { id: "empire", icon: "👑", name: "אימפריית דביר", sec: 8000, base: 5000000 },
-        ];
-
-        // 100, 500, 1000, 5000, ... lifetime totals that trigger a celebration.
-        const MILESTONES = [];
-        for (let p = 100; p <= 1e15; p *= 10) MILESTONES.push(p, p * 5);
-
-        const coinImg = new Image();
-        coinImg.src = "./coin.png";
-
-        const CONFETTI_COLORS = ["#ffc42e", "#ff4f8b", "#3ae0ff", "#7cff6b", "#b388ff", "#ffffff", "#ff8a3d"];
-
-        const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-        const nativeApp = window.DvirAndroid;
-        const canVibrate = Boolean(nativeApp) || typeof navigator.vibrate === "function";
-
-        // ---------------------------------------------------------------
-        // State + persistence
-        // ---------------------------------------------------------------
-        const state = {
-          count: 0,
-          totalEarned: 0,
-          totalClicks: 0,
-          owned: {},
-          milestone: 0,
-          sound: true,
-          vibe: true,
-          lastSeen: Date.now(),
-        };
-
-        function load() {
-          try {
-            const raw = localStorage.getItem(SAVE_KEY);
-            if (!raw) return;
-            const saved = JSON.parse(raw);
-            Object.assign(state, saved, { owned: { ...(saved.owned || {}) } });
-          } catch (_) {
-            /* storage blocked or corrupted: start fresh */
-          }
-        }
-
-        function save() {
-          state.lastSeen = Date.now();
-          try {
-            localStorage.setItem(SAVE_KEY, JSON.stringify(state));
-          } catch (_) {
-            /* storage blocked: progress just won't persist */
-          }
-        }
-
-        const owned = (u) => state.owned[u.id] || 0;
-        const costOf = (u) => Math.ceil(u.base * Math.pow(COST_GROWTH, owned(u)));
-        const perClick = () => UPGRADES.reduce((n, u) => n + (u.click || 0) * owned(u), 1);
-        const perSec = () => UPGRADES.reduce((n, u) => n + (u.sec || 0) * owned(u), 0);
-
-        function earn(n) {
-          state.count += n;
-          state.totalEarned += n;
-        }
-
-        // ---------------------------------------------------------------
-        // Formatting
-        // ---------------------------------------------------------------
-        const BIG = [
-          [1e18, "קווינטיליון"],
-          [1e15, "קוודריליון"],
-          [1e12, "טריליון"],
-          [1e9, "מיליארד"],
-          [1e6, "מיליון"],
-        ];
-        const intFmt = new Intl.NumberFormat("he-IL", { maximumFractionDigits: 0 });
-
-        // Wrap in LRI/PDI so "+5" stays "+5" inside right-to-left text.
-        const ltr = (text) => "\u2066" + text + "\u2069";
-
-        function fmt(n) {
-          for (const [v, word] of BIG) {
-            if (n >= v) return (n / v).toFixed(2).replace(/\.?0+$/, "") + " " + word;
-          }
-          return intFmt.format(Math.floor(n));
-        }
-
-        // ---------------------------------------------------------------
-        // DOM
-        // ---------------------------------------------------------------
-        const $ = (id) => document.getElementById(id);
-        const app = $("app");
-        const dvir = $("dvir");
-        const countEl = $("count");
-        const perClickEl = $("perClick");
-        const perSecEl = $("perSec");
-        const comboEl = $("combo");
-        const hintEl = $("hint");
-        const itemsEl = $("items");
-        const statClicksEl = $("statClicks");
-        const statEarnedEl = $("statEarned");
-        const toastEl = $("toast");
-        const soundToggle = $("soundToggle");
-        const vibeToggle = $("vibeToggle");
-
-        const itemEls = {};
-        for (const u of UPGRADES) {
-          const li = document.createElement("li");
-          li.innerHTML = `
-            <button class="item" type="button">
-              <span class="item-icon" aria-hidden="true"></span>
-              <span>
-                <span class="item-name"></span>
-                <span class="item-desc"></span>
-                <span class="item-cost"><img class="coin" src="./coin.png" alt="" /><span></span></span>
-              </span>
-              <span class="item-owned"></span>
-            </button>`;
-          const btn = li.firstElementChild;
-          btn.addEventListener("click", () => buy(u, btn));
-          itemsEl.appendChild(li);
-          itemEls[u.id] = {
-            btn,
-            icon: btn.querySelector(".item-icon"),
-            name: btn.querySelector(".item-name"),
-            desc: btn.querySelector(".item-desc"),
-            cost: btn.querySelector(".item-cost span"),
-            owned: btn.querySelector(".item-owned"),
-          };
-        }
-
-        function isRevealed(u, i) {
-          return i < 2 || owned(u) > 0 || state.totalEarned >= u.base * 0.5;
-        }
-
-        let lastShopKey = "";
-        function renderShop() {
-          // Only touch the DOM when something that affects the shop changed.
-          const key = UPGRADES.map((u, i) => [owned(u), state.count >= costOf(u), isRevealed(u, i)].join()).join("|");
-          if (key === lastShopKey) return;
-          lastShopKey = key;
-          UPGRADES.forEach((u, i) => {
-            const el = itemEls[u.id];
-            const revealed = isRevealed(u, i);
-            const cost = costOf(u);
-            el.btn.classList.toggle("locked", !revealed);
-            el.btn.disabled = !revealed || state.count < cost;
-            el.icon.textContent = u.icon;
-            el.name.textContent = revealed ? u.name : "???";
-            el.desc.textContent = revealed
-              ? u.click
-                ? `${ltr("+" + fmt(u.click))} ללחיצה`
-                : `${ltr("+" + fmt(u.sec))} לשנייה`
-              : "ממשיכים ללחוץ כדי לגלות";
-            el.cost.textContent = fmt(cost);
-            el.owned.textContent = owned(u) || "";
-          });
-        }
-
-        let shownCount = -1;
-        function renderScore() {
-          const c = Math.floor(state.count);
-          if (c !== shownCount) {
-            shownCount = c;
-            countEl.textContent = fmt(c);
-          }
-        }
-
-        function renderRates() {
-          perClickEl.textContent = fmt(perClick());
-          perSecEl.textContent = fmt(perSec());
-          statClicksEl.textContent = fmt(state.totalClicks);
-          statEarnedEl.textContent = fmt(state.totalEarned);
-        }
-
-        function renderToggles() {
-          soundToggle.setAttribute("aria-pressed", state.sound);
-          soundToggle.textContent = state.sound ? "🔊" : "🔇";
-          vibeToggle.hidden = !canVibrate;
-          vibeToggle.setAttribute("aria-pressed", state.vibe);
-        }
-
-        let toastTimer = 0;
-        function toast(text, ms = 2600) {
-          toastEl.textContent = text;
-          toastEl.classList.add("show");
-          clearTimeout(toastTimer);
-          toastTimer = setTimeout(() => toastEl.classList.remove("show"), ms);
-        }
-
-        // ---------------------------------------------------------------
-        // Sound (synthesised, no audio files)
-        // ---------------------------------------------------------------
-        let audio = null;
-        let master = null;
-
-        function ac() {
-          if (!audio) {
-            const Ctx = window.AudioContext || window.webkitAudioContext;
-            if (!Ctx) return null;
-            audio = new Ctx();
-            master = audio.createGain();
-            master.gain.value = 0.5;
-            master.connect(audio.destination);
-          }
-          if (audio.state === "suspended") audio.resume();
-          return audio;
-        }
-
-        function tone(freq, endFreq, dur, type, vol, delay = 0) {
-          const a = ac();
-          if (!a) return;
-          const t = a.currentTime + delay;
-          const osc = a.createOscillator();
-          const g = a.createGain();
-          osc.type = type;
-          osc.frequency.setValueAtTime(freq, t);
-          osc.frequency.exponentialRampToValueAtTime(endFreq, t + dur);
-          g.gain.setValueAtTime(0.0001, t);
-          g.gain.exponentialRampToValueAtTime(vol, t + 0.008);
-          g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-          osc.connect(g).connect(master);
-          osc.start(t);
-          osc.stop(t + dur + 0.02);
-        }
-
-        function playPop(combo) {
-          if (!state.sound) return;
-          const f = 480 * (1 + Math.min(combo, 30) * 0.025) * (0.94 + Math.random() * 0.12);
-          tone(f, f * 0.35, 0.11, "triangle", 0.35);
-          tone(f * 2, f * 0.9, 0.05, "sine", 0.12);
-        }
-
-        function playBuy() {
-          if (!state.sound) return;
-          tone(988, 988, 0.08, "square", 0.08);
-          tone(1319, 1319, 0.22, "square", 0.08, 0.07);
-        }
-
-        function playFanfare() {
-          if (!state.sound) return;
-          [523, 659, 784, 1047].forEach((f, i) => tone(f, f, 0.25, "triangle", 0.3, i * 0.09));
-          tone(1568, 1568, 0.5, "sine", 0.15, 0.36);
-        }
-
-        function vibrate(pattern) {
-          if (canVibrate && state.vibe) {
-            try {
-              if (nativeApp) nativeApp.vibrate(String(pattern));
-              else navigator.vibrate(pattern);
-            } catch (_) {}
-          }
-        }
-
-        // ---------------------------------------------------------------
-        // Effects canvas: particles, floating numbers, rings, confetti
-        // ---------------------------------------------------------------
-        const canvas = $("fx");
-        const ctx = canvas.getContext("2d");
-        let dpr = 1;
-        let W = 0;
-        let H = 0;
-        const particles = [];
-        const MAX_PARTICLES = reduceMotion ? 120 : 700;
-
-        function resize() {
-          dpr = Math.min(window.devicePixelRatio || 1, 2);
-          W = window.innerWidth;
-          H = window.innerHeight;
-          canvas.width = Math.round(W * dpr);
-          canvas.height = Math.round(H * dpr);
-          ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-        }
-        window.addEventListener("resize", resize);
-        resize();
-
-        const rand = (a, b) => a + Math.random() * (b - a);
-        const pick = (arr) => arr[(Math.random() * arr.length) | 0];
-
-        function add(p) {
-          if (particles.length >= MAX_PARTICLES) particles.shift();
-          particles.push(p);
-        }
-
-        function burst(x, y, amount, coins = 0) {
-          for (let i = 0; i < amount; i++) {
-            const angle = rand(0, Math.PI * 2);
-            const speed = rand(180, 520);
-            add({
-              kind: Math.random() < 0.6 ? "rect" : "dot",
-              x,
-              y,
-              vx: Math.cos(angle) * speed,
-              vy: Math.sin(angle) * speed - 120,
-              g: 950,
-              drag: 1.6,
-              size: rand(5, 10),
-              rot: rand(0, Math.PI),
-              vr: rand(-12, 12),
-              color: pick(CONFETTI_COLORS),
-              life: rand(0.55, 0.95),
-              age: 0,
-            });
-          }
-          for (let i = 0; i < coins; i++) {
-            const angle = rand(-Math.PI * 0.85, -Math.PI * 0.15);
-            const speed = rand(260, 480);
-            add({
-              kind: "coin",
-              x,
-              y,
-              vx: Math.cos(angle) * speed,
-              vy: Math.sin(angle) * speed,
-              g: 1100,
-              drag: 1.2,
-              size: rand(24, 34),
-              spin: rand(6, 11),
-              phase: rand(0, Math.PI * 2),
-              life: rand(0.8, 1.1),
-              age: 0,
-            });
-          }
-          add({ kind: "ring", x, y, life: 0.4, age: 0, size: 70 });
-        }
-
-        function floatText(x, y, text, big) {
-          add({
-            kind: "text",
-            x: x + rand(-18, 18),
-            y: y - 10,
-            vx: rand(-30, 30),
-            vy: -rand(140, 190),
-            g: 0,
-            drag: 0.8,
-            text,
-            size: big ? 40 : 30,
-            life: 1,
-            age: 0,
-          });
-        }
-
-        function confettiRain(amount) {
-          for (let i = 0; i < amount; i++) {
-            const isCoin = Math.random() < 0.25;
-            add({
-              kind: isCoin ? "coin" : "rect",
-              spin: rand(3, 7),
-              x: rand(0, W),
-              y: rand(-H * 0.4, -10),
-              vx: rand(-60, 60),
-              vy: rand(80, 260),
-              g: 260,
-              drag: 0.9,
-              size: isCoin ? rand(26, 40) : rand(7, 13),
-              rot: rand(0, Math.PI),
-              vr: rand(-8, 8),
-              sway: rand(1.5, 4),
-              phase: rand(0, Math.PI * 2),
-              color: pick(CONFETTI_COLORS),
-              life: rand(2.6, 3.6),
-              age: 0,
-            });
-          }
-        }
-
-        function stepParticles(dt) {
-          ctx.clearRect(0, 0, W, H);
-          for (let i = particles.length - 1; i >= 0; i--) {
-            const p = particles[i];
-            p.age += dt;
-            if (p.age >= p.life) {
-              particles.splice(i, 1);
-              continue;
-            }
-            const t = p.age / p.life;
-
-            if (p.kind === "ring") {
-              ctx.globalAlpha = 1 - t;
-              ctx.strokeStyle = "#fff3c4";
-              ctx.lineWidth = 4 * (1 - t) + 1;
-              ctx.beginPath();
-              ctx.arc(p.x, p.y, 12 + p.size * (1 - Math.pow(1 - t, 3)), 0, Math.PI * 2);
-              ctx.stroke();
-              continue;
-            }
-
-            p.vy += p.g * dt;
-            p.vx -= p.vx * p.drag * dt;
-            p.vy -= p.vy * p.drag * dt * 0.5;
-            p.x += p.vx * dt + (p.sway ? Math.sin(p.age * p.sway + p.phase) * 1.2 : 0);
-            p.y += p.vy * dt;
-
-            if (p.kind === "text") {
-              const pop = t < 0.12 ? 0.6 + (t / 0.12) * 0.55 : 1.15 - Math.min(0.15, (t - 0.12) * 0.6);
-              ctx.globalAlpha = t > 0.6 ? 1 - (t - 0.6) / 0.4 : 1;
-              ctx.save();
-              ctx.translate(p.x, p.y);
-              ctx.scale(pop, pop);
-              ctx.font = `900 ${p.size}px Rubik, system-ui, sans-serif`;
-              ctx.direction = "ltr";
-              ctx.textAlign = "center";
-              ctx.textBaseline = "middle";
-              ctx.lineJoin = "round";
-              ctx.lineWidth = 6;
-              ctx.strokeStyle = "#3a1d00";
-              ctx.strokeText(p.text, 0, 0);
-              ctx.fillStyle = "#ffe066";
-              ctx.fillText(p.text, 0, 0);
-              ctx.restore();
-              continue;
-            }
-
-            ctx.globalAlpha = t > 0.7 ? 1 - (t - 0.7) / 0.3 : 1;
-
-            if (p.kind === "coin") {
-              const half = p.size / 2;
-              ctx.save();
-              ctx.translate(p.x, p.y);
-              ctx.scale(Math.max(0.08, Math.abs(Math.cos(p.age * p.spin + p.phase))), 1);
-              if (coinImg.complete && coinImg.naturalWidth) {
-                ctx.drawImage(coinImg, -half, -half, p.size, p.size);
-              } else {
-                ctx.fillStyle = "#ffc42e";
-                ctx.beginPath();
-                ctx.arc(0, 0, half, 0, Math.PI * 2);
-                ctx.fill();
-              }
-              ctx.restore();
-              continue;
-            }
-
-            ctx.fillStyle = p.color;
-            if (p.kind === "dot") {
-              ctx.beginPath();
-              ctx.arc(p.x, p.y, p.size * 0.5, 0, Math.PI * 2);
-              ctx.fill();
-            } else {
-              p.rot += p.vr * dt;
-              ctx.save();
-              ctx.translate(p.x, p.y);
-              ctx.rotate(p.rot);
-              // Squash the width over time so confetti looks like it flips.
-              ctx.scale(Math.cos(p.age * 9 + p.rot), 1);
-              ctx.fillRect(-p.size / 2, -p.size * 0.3, p.size, p.size * 0.6);
-              ctx.restore();
-            }
-          }
-          ctx.globalAlpha = 1;
-        }
-
-        // ---------------------------------------------------------------
-        // Dvir squish (spring) and screen shake
-        // ---------------------------------------------------------------
-        const squish = { s: 0, v: 0, r: 0, vr: 0 };
-        let trauma = 0;
-
-        function stepSpring(dt) {
-          // Underdamped springs so rapid clicks pile up and bounce back.
-          squish.v += (-520 * squish.s - 20 * squish.v) * dt;
-          squish.s = Math.max(-0.2, Math.min(0.15, squish.s + squish.v * dt));
-          squish.vr += (-320 * squish.r - 14 * squish.vr) * dt;
-          squish.r = Math.max(-12, Math.min(12, squish.r + squish.vr * dt));
-          const still = Math.abs(squish.s) < 1e-4 && Math.abs(squish.v) < 1e-3 && Math.abs(squish.r) < 1e-2;
-          dvir.style.transform = still ? "" : `scale(${1 + squish.s}) rotate(${squish.r}deg)`;
-        }
-
-        function stepShake(dt) {
-          if (reduceMotion || trauma <= 0) {
-            if (app.style.transform) app.style.transform = "";
-            trauma = 0;
-            return;
-          }
-          trauma = Math.max(0, trauma - dt * 1.5);
-          const k = trauma * trauma;
-          const x = 16 * k * rand(-1, 1);
-          const y = 16 * k * rand(-1, 1);
-          const r = 1.4 * k * rand(-1, 1);
-          app.style.transform = `translate(${x}px, ${y}px) rotate(${r}deg)`;
-        }
-
-        function shake(amount, cap = 1) {
-          if (trauma < cap) trauma = Math.min(cap, trauma + amount);
-        }
-
-        // ---------------------------------------------------------------
-        // Clicking
-        // ---------------------------------------------------------------
-        let combo = 0;
-        let lastClickAt = 0;
-        let comboTimer = 0;
-        let hintGone = false;
-
-        function hit(x, y) {
-          const now = performance.now();
-          combo = now - lastClickAt < 380 ? combo + 1 : 1;
-          lastClickAt = now;
-
-          const gain = perClick();
-          earn(gain);
-          state.totalClicks += 1;
-
-          // Squish + tilt toward the side that was hit.
-          const rect = dvir.getBoundingClientRect();
-          const dx = (x - (rect.left + rect.width / 2)) / (rect.width / 2);
-          squish.v -= 3.2;
-          squish.vr += dx * 110;
-
-          const c = Math.min(combo, 24);
-          floatText(x, y, "+" + fmt(gain), combo >= 15);
-          burst(x, y, reduceMotion ? 4 : 8 + Math.round(c / 2), reduceMotion ? 1 : 2 + Math.round(c / 8));
-          playPop(combo);
-          vibrate(combo >= 10 ? 18 : 10);
-
-          if (combo >= 6) shake(0.05 + c * 0.006, 0.5);
-
-          if (combo >= 5) {
-            comboEl.textContent = `🔥 קומבו x${combo}`;
-            comboEl.classList.add("show");
-          }
-          clearTimeout(comboTimer);
-          comboTimer = setTimeout(() => {
-            comboEl.classList.remove("show");
-            combo = 0;
-          }, 700);
-
-          if (!hintGone) {
-            hintGone = true;
-            hintEl.classList.add("gone");
-          }
-
-          renderScore();
-          renderRates();
-        }
-
-        dvir.addEventListener("pointerdown", (e) => {
-          if (e.button !== 0) return;
-          e.preventDefault();
-          hit(e.clientX, e.clientY);
-        });
-
-        // Keyboard players: Space / Enter, one hit per key press.
-        dvir.addEventListener("keydown", (e) => {
-          if (e.key !== " " && e.key !== "Enter") return;
-          e.preventDefault();
-          if (e.repeat) return;
-          const r = dvir.getBoundingClientRect();
-          hit(r.left + r.width / 2 + rand(-r.width / 5, r.width / 5), r.top + r.height / 2 + rand(-r.height / 5, r.height / 5));
-        });
-
-        dvir.addEventListener("contextmenu", (e) => e.preventDefault());
-
-        // ---------------------------------------------------------------
-        // Shop
-        // ---------------------------------------------------------------
-        function buy(u, btn) {
-          const cost = costOf(u);
-          if (state.count < cost) return;
-          state.count -= cost;
-          state.owned[u.id] = owned(u) + 1;
-          playBuy();
-          vibrate(25);
-          btn.classList.remove("bought");
-          void btn.offsetWidth;
-          btn.classList.add("bought");
-          const r = btn.getBoundingClientRect();
-          burst(r.left + 38, r.top + r.height / 2, reduceMotion ? 4 : 14);
-          renderShop();
-          renderScore();
-          renderRates();
-          save();
-        }
-
-        // ---------------------------------------------------------------
-        // Milestones
-        // ---------------------------------------------------------------
-        function checkMilestones() {
-          let hitOne = false;
-          while (state.milestone < MILESTONES.length && state.totalEarned >= MILESTONES[state.milestone]) {
-            state.milestone += 1;
-            hitOne = true;
-          }
-          if (!hitOne) return;
-          const value = MILESTONES[state.milestone - 1];
-          toast(`🎉 ${fmt(value)} דבירים! 🎉`);
-          confettiRain(reduceMotion ? 40 : 170);
-          shake(0.85);
-          playFanfare();
-          vibrate([40, 50, 40, 50, 80]);
-        }
-
-        // ---------------------------------------------------------------
-        // Toggles + reset
-        // ---------------------------------------------------------------
-        soundToggle.addEventListener("click", () => {
-          state.sound = !state.sound;
-          renderToggles();
-          if (state.sound) playPop(1);
-          save();
-        });
-
-        vibeToggle.addEventListener("click", () => {
-          state.vibe = !state.vibe;
-          renderToggles();
-          vibrate(30);
-          save();
-        });
-
-        $("reset").addEventListener("click", () => {
-          if (!confirm("בטוחים? כל ההתקדמות תימחק.")) return;
-          Object.assign(state, { count: 0, totalEarned: 0, totalClicks: 0, owned: {}, milestone: 0 });
-          lastShopKey = "";
-          hintGone = false;
-          hintEl.classList.remove("gone");
-          save();
-          renderShop();
-          renderScore();
-          renderRates();
-        });
-
-        // ---------------------------------------------------------------
-        // Main loop
-        // ---------------------------------------------------------------
-        let last = performance.now();
-        let uiTimer = 0;
-        let titleTimer = 0;
-
-        function frame(now) {
-          const elapsed = (now - last) / 1000;
-          last = now;
-          // Income uses real elapsed time (so a backgrounded tab still earns),
-          // physics uses a clamped step so nothing explodes after a pause.
-          const gained = perSec() * Math.min(elapsed, OFFLINE_CAP_SECONDS);
-          earn(gained);
-          if (elapsed > 30 && gained >= 1) {
-            toast(`ברוכים השבים! בזמן שלא הייתם נאספו ${fmt(gained)} דבירים 💰`, 4200);
-          }
-          const dt = Math.min(elapsed, 1 / 30);
-
-          stepSpring(dt);
-          stepShake(dt);
-          stepParticles(dt);
-          renderScore();
-
-          uiTimer += elapsed;
-          if (uiTimer > 0.1) {
-            uiTimer = 0;
-            checkMilestones();
-            renderShop();
-            statEarnedEl.textContent = fmt(state.totalEarned);
-          }
-
-          titleTimer += elapsed;
-          if (titleTimer > 1) {
-            titleTimer = 0;
-            document.title = `${fmt(state.count)} דבירים · Dvir Clicker`;
-          }
-
-          requestAnimationFrame(frame);
-        }
-
-        // ---------------------------------------------------------------
-        // Boot
-        // ---------------------------------------------------------------
-        load();
-
-        const away = Math.min(OFFLINE_CAP_SECONDS, Math.max(0, (Date.now() - state.lastSeen) / 1000));
-        const offline = perSec() * away;
-        if (offline >= 1) {
-          earn(offline);
-          setTimeout(() => toast(`ברוכים השבים! בזמן שלא הייתם נאספו ${fmt(offline)} דבירים 💰`, 4200), 400);
-        }
-
-        if (state.totalClicks > 0) {
-          hintGone = true;
-          hintEl.classList.add("gone");
-        }
-
-        // Don't replay milestones that were already passed before this visit.
-        while (state.milestone < MILESTONES.length && state.totalEarned >= MILESTONES[state.milestone]) {
-          state.milestone += 1;
-        }
-
-        renderToggles();
-        renderShop();
-        renderScore();
-        renderRates();
-
-        setInterval(save, 5000);
-        document.addEventListener("visibilitychange", () => {
-          if (document.visibilityState === "hidden") save();
-        });
-        window.addEventListener("pagehide", save);
-        window.dvirSave = save;
-
-        requestAnimationFrame((t) => {
-          last = t;
-          requestAnimationFrame(frame);
-        });
-      })();
-    </script>
+    <div class="ach-banner" id="achBanner" role="status" aria-live="polite"></div>
+
+    <div class="modal" id="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+      <div class="modal-card">
+        <div class="modal-icon" id="modalIcon"></div>
+        <h3 id="modalTitle"></h3>
+        <p id="modalText"></p>
+        <div class="modal-actions">
+          <button class="btn ghost" id="modalCancel">ביטול</button>
+          <button class="btn primary" id="modalOk">אישור</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="flash" id="flash"></div>
+
+    <div class="splash" id="splash">
+      <div class="splash-rays"></div>
+      <img class="splash-coin" src="./coin.png" alt="" />
+      <h1 class="logo">Dvir Clicker</h1>
+      <p class="splash-tap">לחצו כדי להתחיל</p>
+    </div>
+
+    <script src="./js/data.js"></script>
+    <script src="./js/audio.js"></script>
+    <script src="./js/background.js"></script>
+    <script src="./js/skins.js"></script>
+    <script src="./js/game.js"></script>
   </body>
 </html>

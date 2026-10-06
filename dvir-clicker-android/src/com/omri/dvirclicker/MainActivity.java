@@ -75,13 +75,14 @@ public class MainActivity extends Activity {
     protected void onResume() {
         super.onResume();
         webView.onResume();
+        webView.evaluateJavascript("window.dvirResume && window.dvirResume()", null);
         hideSystemBars();
     }
 
     @Override
     protected void onPause() {
-        // The page saves on its own every few seconds; this catches the last clicks.
-        webView.evaluateJavascript("window.dvirSave && window.dvirSave()", null);
+        // Saves the last clicks and stops the music while the app is in the background.
+        webView.evaluateJavascript("window.dvirPause ? window.dvirPause() : window.dvirSave && window.dvirSave()", null);
         webView.onPause();
         super.onPause();
     }
