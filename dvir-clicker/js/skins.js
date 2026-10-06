@@ -76,6 +76,11 @@
     );
   }
 
+  // Soft contact shadow under an accessory (a gradient, no SVG filter: cheap on phones).
+  const SHADOW_DEF =
+    '<radialGradient id="__ID__-sh"><stop offset="0" stop-color="#1a1030" stop-opacity=".55"/>' +
+    '<stop offset="1" stop-color="#1a1030" stop-opacity="0"/></radialGradient>';
+
   function svgWrap(id, body) {
     return (
       `<svg class="dcs-acc dcs-acc-${id}" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" ` +
@@ -95,16 +100,14 @@
     const lens = (d, dx, clip) => `
       <path d="${d}" transform="translate(${dx} 0)" fill="url(#__ID__-lens)" stroke-width="2.3"/>
       <g clip-path="url(#__ID__-${clip})" stroke="none">
-        <path d="M${dx - 2.6} -6L${dx + 1} -6L${dx - 4} 6L${dx - 7.6} 6Z" fill="#fff" opacity=".26"/>
-        <path d="M${dx + 2.4} -6L${dx + 3.8} -6L${dx - 1.2} 6L${dx - 2.6} 6Z" fill="#fff" opacity=".18"/>
+        <path d="M${r1(dx - 2.6)} -6L${r1(dx + 1)} -6L${r1(dx - 4)} 6L${r1(dx - 7.6)} 6Z" fill="#fff" opacity=".26"/>
+        <path d="M${r1(dx + 2.4)} -6L${r1(dx + 3.8)} -6L${r1(dx - 1.2)} 6L${r1(dx - 2.6)} 6Z" fill="#fff" opacity=".18"/>
         <path d="${d}" transform="translate(${dx} 3.4)" fill="none" stroke="#ff6fae" stroke-width="2.2" opacity=".55"/>
       </g>`;
     return svgWrap(
       "shades",
       `<defs>
-        <radialGradient id="__ID__-sh">
-          <stop offset="0" stop-color="#1a1030" stop-opacity=".55"/><stop offset="1" stop-color="#1a1030" stop-opacity="0"/>
-        </radialGradient>
+        ${SHADOW_DEF}
         <linearGradient id="__ID__-lens" x1="0" y1="0" x2="0" y2="1">
           <stop offset="0" stop-color="#3b2a7e"/><stop offset=".5" stop-color="#140c33"/><stop offset="1" stop-color="#0a0620"/>
         </linearGradient>
@@ -119,21 +122,19 @@
         ${lens(lensR, 7.75, "cr")}
         ${lens(lensL, -7.75, "cl")}
         <path d="M11.3 -3.1Q13.4 -3.4 14 -2.2M-4.3 -3.1Q-2.2 -3.4 -1.6 -2.2" stroke="#fff" stroke-width=".8" fill="none" opacity=".8"/>
-      </g>`
+      </g>`,
     );
   }
 
   // Party hat: striped cone sunk into the top of his hair, leaning with its slope.
   function partySvg() {
-    const cone = "M-13.5 0L-1.1 -24Q0 -25.6 1.1 -24L13.5 0Q0 4.6 -13.5 0Z";
-    const trim = scallopBand([-14.2, 0], [0, 4.8], [14.2, 0], 10, 1.15);
-    const pom = fluff(0, -25.8, 3.6, 11, 0.6);
+    const cone = "M-12.8 0L-1 -21.2Q0 -22.8 1 -21.2L12.8 0Q0 4.5 -12.8 0Z";
+    const trim = scallopBand([-13.5, 0], [0, 4.7], [13.5, 0], 10, 1.1);
+    const pom = fluff(0, -23.4, 3.5, 11, 0.6);
     return svgWrap(
       "party",
       `<defs>
-        <radialGradient id="__ID__-sh">
-          <stop offset="0" stop-color="#1a1030" stop-opacity=".55"/><stop offset="1" stop-color="#1a1030" stop-opacity="0"/>
-        </radialGradient>
+        ${SHADOW_DEF}
         <linearGradient id="__ID__-cone" x1="0" y1="0" x2="1" y2="0">
           <stop offset="0" stop-color="#ff9ccb"/><stop offset=".4" stop-color="#ff4f9a"/><stop offset="1" stop-color="#c2125f"/>
         </linearGradient>
@@ -145,30 +146,31 @@
         </radialGradient>
         <clipPath id="__ID__-clip"><path d="${cone}"/></clipPath>
       </defs>
-      <g transform="translate(51 9.8) rotate(-16) scale(1.1)">
-        <ellipse cx="0.8" cy="2.6" rx="16" ry="4.4" fill="url(#__ID__-sh)" stroke="none"/>
+      <g transform="translate(50.8 10.4) rotate(-18)">
+        <ellipse cx="0.8" cy="2.6" rx="15.4" ry="4.3" fill="url(#__ID__-sh)" stroke="none"/>
         <path d="${cone}" fill="url(#__ID__-cone)"/>
         <g clip-path="url(#__ID__-clip)" stroke="none">
-          <path d="M-16 -2.6Q0 -3.6 16 -12.4L16 -8.4Q0 0.4 -16 1.4Z" fill="url(#__ID__-stripe)"/>
-          <path d="M-16 -12Q0 -12.6 16 -21.4L16 -17.6Q0 -8.8 -16 -8.2Z" fill="url(#__ID__-stripe)"/>
-          <path d="M-16 -21Q0 -21.6 16 -30.4L16 -26.8Q0 -18 -16 -17.4Z" fill="url(#__ID__-stripe)"/>
-          <circle cx="-4.4" cy="-5.6" r="1.35" fill="#3ae0ff"/><circle cx="5.2" cy="-10.6" r="1.2" fill="#3ae0ff"/>
-          <circle cx="-2.4" cy="-14.8" r="1.05" fill="#3ae0ff"/><circle cx="2.6" cy="-20.2" r=".85" fill="#3ae0ff"/>
-          <path d="M-10 -1.6L-1.8 -21.6" stroke="#fff" stroke-width="1.8" opacity=".42"/>
-          <path d="M6.2 4L1.2 -25L4 -25L16 4Z" fill="#7a0b3c" opacity=".22"/>
+          <path d="M-16 -2.2Q0 -3.2 16 -11.4L16 -7.6Q0 0.6 -16 1.6Z" fill="url(#__ID__-stripe)"/>
+          <path d="M-16 -10.6Q0 -11.2 16 -19.4L16 -15.8Q0 -7.6 -16 -7Z" fill="url(#__ID__-stripe)"/>
+          <path d="M-16 -19Q0 -19.6 16 -27.8L16 -24.4Q0 -16.2 -16 -15.6Z" fill="url(#__ID__-stripe)"/>
+          <circle cx="-4.2" cy="-5.3" r="1.3" fill="#3ae0ff"/><circle cx="4.8" cy="-9.6" r="1.15" fill="#3ae0ff"/>
+          <circle cx="-2.2" cy="-13.4" r="1" fill="#3ae0ff"/><circle cx="2.2" cy="-18" r=".8" fill="#3ae0ff"/>
+          <path d="M-9.4 -1.6L-1.7 -19.2" stroke="#fff" stroke-width="1.8" opacity=".42"/>
+          <path d="M6 4L1.1 -22.4L3.8 -22.4L15 4Z" fill="#7a0b3c" opacity=".22"/>
         </g>
         <path d="${cone}" fill="none"/>
         <path d="${trim}" fill="#fff6d6"/>
         <path d="${pom}" fill="url(#__ID__-pom)"/>
-        <circle cx="-1.3" cy="-27.1" r="1.05" fill="#fff" stroke="none" opacity=".9"/>
-      </g>`
+        <circle cx="-1.2" cy="-24.7" r="1" fill="#fff" stroke="none" opacity=".9"/>
+      </g>`,
     );
   }
 
   // Headphones: band hugging the outline of his hair, cups over the ears.
   function headphonesSvg() {
     const band = "M23.6 37C17.6 24 23.4 6.5 37 1.8C46 -1.4 58 -1.8 66 1C78 5.6 83.2 22 76.4 37";
-    const cushion = "M29.8 6C31.9 4.2 34.3 2.7 37 1.8C46 -1.4 58 -1.8 66 1C68.4 1.9 70.5 3.3 72.3 5.1"; // the top stretch of the band, padded
+    // padded top stretch: the same curve as the band between t=.8 of its first and t=.2 of its last segment
+    const cushion = "M29.8 6C31.9 4.2 34.3 2.7 37 1.8C46 -1.4 58 -1.8 66 1C68.4 1.9 70.5 3.3 72.3 5.1";
     const cup = `
       <rect x="21.6" y="31" width="3.4" height="5" rx="1" fill="#6d6488"/>
       <rect x="25.1" y="36.2" width="6.9" height="15.6" rx="3.2" fill="url(#__ID__-pad)"/>
@@ -178,9 +180,7 @@
     return svgWrap(
       "headphones",
       `<defs>
-        <radialGradient id="__ID__-sh">
-          <stop offset="0" stop-color="#1a1030" stop-opacity=".55"/><stop offset="1" stop-color="#1a1030" stop-opacity="0"/>
-        </radialGradient>
+        ${SHADOW_DEF}
         <linearGradient id="__ID__-shell" x1="0" y1="0" x2="1" y2="1">
           <stop offset="0" stop-color="#ff9cc2"/><stop offset=".45" stop-color="#ff3d7f"/><stop offset="1" stop-color="#a80f4c"/>
         </linearGradient>
@@ -203,7 +203,7 @@
       <ellipse cx="31.6" cy="45" rx="4" ry="9.6" fill="url(#__ID__-sh)" stroke="none"/>
       <ellipse cx="68.4" cy="45" rx="4" ry="9.6" fill="url(#__ID__-sh)" stroke="none"/>
       ${cup}
-      <g transform="matrix(-1 0 0 1 100 0)">${cup}</g>`
+      <g transform="matrix(-1 0 0 1 100 0)">${cup}</g>`,
     );
   }
 
@@ -213,9 +213,7 @@
     return svgWrap(
       "cap",
       `<defs>
-        <radialGradient id="__ID__-sh">
-          <stop offset="0" stop-color="#1a1030" stop-opacity=".55"/><stop offset="1" stop-color="#1a1030" stop-opacity="0"/>
-        </radialGradient>
+        ${SHADOW_DEF}
         <radialGradient id="__ID__-dome" cx=".36" cy=".2" r=".95">
           <stop offset="0" stop-color="#ff7a7a"/><stop offset=".45" stop-color="#e5293f"/><stop offset="1" stop-color="#8f0f2a"/>
         </radialGradient>
@@ -237,22 +235,27 @@
         <ellipse cx="50" cy="-0.3" rx="2.6" ry="1.4" fill="#24306b"/>
         <ellipse cx="38.4" cy="6.8" rx="6.4" ry="2.6" transform="rotate(-30 38.4 6.8)" fill="#fff" stroke="none" opacity=".16"/>
         <path d="M30.6 10.2C34.6 4.2 41.2 1.6 46.8 1.4" fill="none" stroke="#fff" stroke-width="1.7" opacity=".5"/>
-      </g>`
+      </g>`,
     );
   }
 
   // Crown: gold, five points with pearls, nestled into the top of the hair.
   function crownSvg() {
-    const body = "M-17 0L-18.8 -13.6L-11.6 -6.8L-8.4 -17.4L-3.6 -7.6L0 -20.4L3.6 -7.6L8.4 -17.4L11.6 -6.8L18.8 -13.6L17 0Q0 3.4 -17 0Z";
-    const pearls = [[-18.8, -13.6], [-8.4, -17.4], [0, -20.4], [8.4, -17.4], [18.8, -13.6]]
+    const body =
+      "M-17 0L-18.8 -13.6L-11.6 -6.8L-8.4 -17.4L-3.6 -7.6L0 -20.4L3.6 -7.6L8.4 -17.4L11.6 -6.8L18.8 -13.6L17 0Q0 3.4 -17 0Z";
+    const pearls = [
+      [-18.8, -13.6],
+      [-8.4, -17.4],
+      [0, -20.4],
+      [8.4, -17.4],
+      [18.8, -13.6],
+    ]
       .map(([x, y]) => `<circle cx="${x}" cy="${y}" r="1.75" fill="url(#__ID__-pearl)" stroke-width="1.2"/>`)
       .join("");
     return svgWrap(
       "crown",
       `<defs>
-        <radialGradient id="__ID__-sh">
-          <stop offset="0" stop-color="#1a1030" stop-opacity=".55"/><stop offset="1" stop-color="#1a1030" stop-opacity="0"/>
-        </radialGradient>
+        ${SHADOW_DEF}
         <linearGradient id="__ID__-gold" x1="0" y1="0" x2=".5" y2="1">
           <stop offset="0" stop-color="#fff6b0"/><stop offset=".35" stop-color="#ffd23f"/><stop offset=".72" stop-color="#f4a011"/><stop offset="1" stop-color="#b86200"/>
         </linearGradient>
@@ -282,13 +285,14 @@
         <path d="M0 -13.6L1.4 -11.2L0 -9.2L-1.4 -11.2Z" fill="url(#__ID__-ruby)" stroke-width=".9"/>
         ${pearls}
         <circle cx="-0.8" cy="-1.5" r=".6" fill="#fff" stroke="none"/>
-      </g>`
+      </g>`,
     );
   }
 
   // Halo: glowing gold ring floating above his hair (bobs via .dcs-acc-halo in CSS).
   function haloSvg() {
-    const ring = "M-19.6 0A19.6 6.4 0 1 0 19.6 0A19.6 6.4 0 1 0 -19.6 0ZM-14.2 0A14.2 3.1 0 1 1 14.2 0A14.2 3.1 0 1 1 -14.2 0Z";
+    const ring =
+      "M-19.6 0A19.6 6.4 0 1 0 19.6 0A19.6 6.4 0 1 0 -19.6 0ZM-14.2 0A14.2 3.1 0 1 1 14.2 0A14.2 3.1 0 1 1 -14.2 0Z";
     return svgWrap(
       "halo",
       `<defs>
@@ -307,7 +311,7 @@
         <g class="dcs-twinkle" fill="#fff" stroke="none">
           <path d="${sparkle(-22.5, -4.5, 2.6)}"/><path d="${sparkle(21.5, 3.5, 2)}"/><path d="${sparkle(13, -9.5, 1.5)}"/>
         </g>
-      </g>`
+      </g>`,
     );
   }
 
@@ -372,6 +376,7 @@
   // ---------------------------------------------------------------
   // Public API
   // ---------------------------------------------------------------
+  // Swap el's frame-* class for frame-<id> (unknown ids fall back to gold).
   function applyFrame(el, id) {
     try {
       if (!el || !el.classList) return;
@@ -389,11 +394,15 @@
     }
   }
 
+  // Fill an .accessory container with the accessory's SVG (empty for "none" or an
+  // unknown id). Re-rendering the accessory already shown is a no-op, so the halo's
+  // bob keeps running instead of restarting.
   function renderAccessory(container, id) {
     try {
       if (!container) return;
       const key = Object.prototype.hasOwnProperty.call(TEMPLATES, id) ? id : "none";
-      if (container.getAttribute("data-acc") === key && (key === "none") === !container.firstChild) return;
+      const showing = container.getAttribute("data-acc") === key && (key === "none") === !container.firstChild;
+      if (showing) return;
       container.innerHTML = instantiate(key);
       container.setAttribute("data-acc", key);
     } catch (e) {
