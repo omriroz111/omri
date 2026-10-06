@@ -1,0 +1,1297 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#120e26" />
+    <title>Dvir Clicker</title>
+    <meta name="description" content="לוחצים על דביר, אוספים דבירים, קונים שדרוגים." />
+    <link rel="icon" type="image/png" href="./coin.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;700;800;900&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --bg: #120e26;
+        --bg-2: #1d1640;
+        --panel: rgba(255, 255, 255, 0.06);
+        --panel-line: rgba(255, 255, 255, 0.1);
+        --text: #fff8ec;
+        --muted: #b9b1d6;
+        --gold: #ffc42e;
+        --gold-deep: #ff9a1f;
+        --pink: #ff4f8b;
+        --cyan: #3ae0ff;
+        --green: #7cff6b;
+        --radius: 18px;
+        --dvir-size: min(68vw, 46vh, 400px);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+      }
+
+      body {
+        background:
+          radial-gradient(1200px 800px at 70% 20%, #2a1d63 0%, transparent 60%),
+          radial-gradient(900px 700px at 10% 90%, #3b1243 0%, transparent 60%),
+          var(--bg);
+        color: var(--text);
+        font-family: "Rubik", system-ui, sans-serif;
+        overflow-x: hidden;
+        -webkit-tap-highlight-color: transparent;
+        touch-action: manipulation;
+      }
+
+      button {
+        font: inherit;
+        color: inherit;
+      }
+
+      .app {
+        min-height: 100%;
+        display: flex;
+        flex-direction: column;
+        overflow-x: hidden;
+        overflow-x: clip;
+        will-change: transform;
+      }
+
+      /* ---------- header ---------- */
+      header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 14px 16px 0;
+        padding-top: max(14px, env(safe-area-inset-top));
+      }
+
+      h1 {
+        margin: 0;
+        font-size: clamp(26px, 5vw, 38px);
+        font-weight: 900;
+        letter-spacing: -0.5px;
+        direction: ltr;
+        background: linear-gradient(180deg, #fff3c4 0%, var(--gold) 55%, var(--gold-deep) 100%);
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+        filter: drop-shadow(0 3px 0 #7a3b00) drop-shadow(0 8px 18px rgba(255, 170, 30, 0.35));
+      }
+
+      .toggles {
+        display: flex;
+        gap: 8px;
+      }
+
+      .toggle {
+        width: 44px;
+        height: 44px;
+        border-radius: 14px;
+        border: 1px solid var(--panel-line);
+        background: var(--panel);
+        font-size: 20px;
+        cursor: pointer;
+        display: grid;
+        place-items: center;
+        transition: background 0.15s, transform 0.15s;
+      }
+
+      .toggle:hover {
+        background: rgba(255, 255, 255, 0.12);
+      }
+
+      .toggle:active {
+        transform: scale(0.92);
+      }
+
+      .toggle[aria-pressed="false"] {
+        opacity: 0.45;
+      }
+
+      /* ---------- layout ---------- */
+      .layout {
+        flex: 1;
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 8px;
+        padding: 8px 16px 24px;
+        padding-bottom: max(24px, env(safe-area-inset-bottom));
+      }
+
+      @media (min-width: 900px) {
+        /* Lock the app to the screen; only the shop scrolls. */
+        .app {
+          height: 100vh;
+          height: 100dvh;
+          min-height: 620px;
+          overflow: hidden;
+          overflow: clip;
+        }
+        .layout {
+          grid-template-columns: 1fr minmax(340px, 400px);
+          grid-template-rows: minmax(0, 1fr);
+          min-height: 0;
+        }
+        .shop {
+          overflow-y: auto;
+        }
+        :root {
+          --dvir-size: min(40vw, 48vh, 440px);
+        }
+      }
+
+      /* ---------- stage ---------- */
+      .stage {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        user-select: none;
+        -webkit-user-select: none;
+      }
+
+      .score {
+        text-align: center;
+      }
+
+      .count {
+        font-size: clamp(44px, 10vw, 76px);
+        font-weight: 900;
+        line-height: 1;
+        font-variant-numeric: tabular-nums;
+        text-shadow: 0 4px 0 rgba(0, 0, 0, 0.35), 0 0 28px rgba(255, 196, 46, 0.35);
+      }
+
+      .count-label {
+        margin-top: 4px;
+        font-size: 18px;
+        font-weight: 700;
+        color: var(--gold);
+      }
+
+      .rates {
+        margin-top: 6px;
+        font-size: 14px;
+        color: var(--muted);
+        font-variant-numeric: tabular-nums;
+      }
+
+      .rates b {
+        color: var(--text);
+        font-weight: 700;
+      }
+
+      .clicker {
+        position: relative;
+        width: var(--dvir-size);
+        height: var(--dvir-size);
+        margin: calc(var(--dvir-size) * 0.12) 0;
+        display: grid;
+        place-items: center;
+      }
+
+      .rays {
+        position: absolute;
+        inset: -28%;
+        border-radius: 50%;
+        background: repeating-conic-gradient(
+          from 0deg,
+          rgba(255, 210, 90, 0.2) 0deg 9deg,
+          transparent 9deg 22.5deg
+        );
+        -webkit-mask: radial-gradient(circle, #000 30%, transparent 70%);
+        mask: radial-gradient(circle, #000 30%, transparent 70%);
+        animation: spin 40s linear infinite;
+        pointer-events: none;
+      }
+
+      .glow {
+        position: absolute;
+        inset: -6%;
+        border-radius: 50%;
+        background: radial-gradient(circle, rgba(255, 196, 46, 0.45), transparent 65%);
+        pointer-events: none;
+      }
+
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      .dvir-hover {
+        width: 100%;
+        height: 100%;
+        transition: transform 0.2s ease-out;
+      }
+
+      @media (hover: hover) {
+        .clicker:hover .dvir-hover {
+          transform: scale(1.03);
+        }
+      }
+
+      .dvir {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        padding: 0;
+        border: 0;
+        border-radius: 50%;
+        cursor: pointer;
+        background: radial-gradient(circle at 35% 30%, #ffe48a 0%, var(--gold) 45%, var(--gold-deep) 100%);
+        box-shadow:
+          0 0 0 7px #fff3c4,
+          0 0 0 12px #c46a00,
+          0 18px 40px rgba(0, 0, 0, 0.55),
+          inset 0 -12px 30px rgba(160, 70, 0, 0.35);
+        overflow: hidden;
+        touch-action: manipulation;
+        -webkit-touch-callout: none;
+        outline: none;
+      }
+
+      .dvir:focus-visible {
+        box-shadow:
+          0 0 0 7px #fff3c4,
+          0 0 0 12px #c46a00,
+          0 0 0 17px var(--cyan),
+          0 18px 40px rgba(0, 0, 0, 0.55);
+      }
+
+      .dvir img {
+        width: 100%;
+        height: 100%;
+        display: block;
+        pointer-events: none;
+        -webkit-user-drag: none;
+        user-select: none;
+      }
+
+      .combo {
+        position: absolute;
+        top: -4%;
+        inset-inline-start: 50%;
+        translate: 50% 0;
+        padding: 6px 14px;
+        border-radius: 999px;
+        background: linear-gradient(180deg, var(--pink), #d6286a);
+        box-shadow: 0 6px 18px rgba(255, 79, 139, 0.5);
+        font-weight: 900;
+        font-size: 18px;
+        white-space: nowrap;
+        opacity: 0;
+        scale: 0.6;
+        transition: opacity 0.2s, scale 0.2s cubic-bezier(0.3, 1.6, 0.5, 1);
+        pointer-events: none;
+        z-index: 2;
+      }
+
+      .combo.show {
+        opacity: 1;
+        scale: 1;
+      }
+
+      .hint {
+        margin: 0;
+        font-size: 18px;
+        font-weight: 700;
+        color: var(--muted);
+        transition: opacity 0.4s;
+        animation: bob 1.6s ease-in-out infinite;
+      }
+
+      .hint.gone {
+        opacity: 0;
+      }
+
+      @keyframes bob {
+        50% {
+          transform: translateY(-5px);
+        }
+      }
+
+      /* ---------- shop ---------- */
+      .shop {
+        background: var(--panel);
+        border: 1px solid var(--panel-line);
+        border-radius: var(--radius);
+        padding: 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        backdrop-filter: blur(6px);
+      }
+
+      .shop h2 {
+        margin: 0;
+        font-size: 22px;
+        font-weight: 800;
+      }
+
+      .items {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      .item {
+        width: 100%;
+        display: grid;
+        grid-template-columns: 52px 1fr auto;
+        align-items: center;
+        gap: 12px;
+        padding: 10px 12px;
+        text-align: start;
+        border-radius: 14px;
+        border: 1px solid var(--panel-line);
+        background: rgba(255, 255, 255, 0.05);
+        cursor: pointer;
+        transition: background 0.15s, transform 0.12s, opacity 0.2s, border-color 0.15s;
+      }
+
+      .item:not(:disabled):hover {
+        background: rgba(255, 255, 255, 0.11);
+        border-color: rgba(255, 196, 46, 0.5);
+      }
+
+      .item:not(:disabled):active {
+        transform: scale(0.97);
+      }
+
+      .item:disabled {
+        cursor: not-allowed;
+        opacity: 0.5;
+      }
+
+      .item.bought {
+        animation: bought 0.35s ease-out;
+      }
+
+      @keyframes bought {
+        0% {
+          background: rgba(124, 255, 107, 0.35);
+        }
+      }
+
+      .item-icon {
+        width: 52px;
+        height: 52px;
+        border-radius: 12px;
+        display: grid;
+        place-items: center;
+        font-size: 30px;
+        background: rgba(0, 0, 0, 0.25);
+      }
+
+      .item-name {
+        display: block;
+        font-weight: 700;
+        font-size: 16px;
+      }
+
+      .item-desc {
+        display: block;
+        font-size: 13px;
+        color: var(--muted);
+        margin-top: 1px;
+      }
+
+      .item-cost {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        margin-top: 4px;
+        font-weight: 700;
+        font-size: 14px;
+        color: var(--gold);
+        font-variant-numeric: tabular-nums;
+      }
+
+      .item:disabled .item-cost {
+        color: #ff8a8a;
+      }
+
+      .coin {
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        vertical-align: middle;
+        filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.5));
+      }
+
+      .count-label .coin {
+        width: 26px;
+        height: 26px;
+        margin-inline-end: 6px;
+      }
+
+      .item-owned {
+        font-size: 26px;
+        font-weight: 900;
+        color: rgba(255, 255, 255, 0.3);
+        min-width: 2ch;
+        text-align: center;
+        font-variant-numeric: tabular-nums;
+      }
+
+      .item.locked .item-icon {
+        filter: brightness(0) opacity(0.5);
+      }
+
+      .stats {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+        margin-top: auto;
+        padding-top: 4px;
+      }
+
+      .stat {
+        padding: 10px 12px;
+        border-radius: 12px;
+        background: rgba(0, 0, 0, 0.2);
+      }
+
+      .stat span {
+        display: block;
+        font-size: 12px;
+        color: var(--muted);
+      }
+
+      .stat b {
+        font-size: 17px;
+        font-variant-numeric: tabular-nums;
+      }
+
+      .reset {
+        align-self: center;
+        border: 0;
+        background: none;
+        color: var(--muted);
+        font-size: 13px;
+        text-decoration: underline;
+        cursor: pointer;
+        padding: 6px;
+      }
+
+      .reset:hover {
+        color: #ff8a8a;
+      }
+
+      /* ---------- overlays ---------- */
+      #fx {
+        position: fixed;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+        z-index: 10;
+      }
+
+      .toast {
+        position: fixed;
+        top: max(16px, env(safe-area-inset-top));
+        left: 50%;
+        z-index: 20;
+        translate: -50% -140%;
+        max-width: calc(100vw - 32px);
+        padding: 12px 20px;
+        border-radius: 16px;
+        background: linear-gradient(180deg, #fff3c4, var(--gold));
+        color: #3a1d00;
+        font-weight: 800;
+        font-size: 17px;
+        text-align: center;
+        box-shadow: 0 12px 30px rgba(0, 0, 0, 0.45);
+        transition: translate 0.45s cubic-bezier(0.3, 1.4, 0.5, 1);
+        pointer-events: none;
+      }
+
+      .toast.show {
+        translate: -50% 0;
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .rays,
+        .hint {
+          animation: none;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app" id="app">
+      <header>
+        <h1>Dvir Clicker</h1>
+        <div class="toggles">
+          <button class="toggle" id="soundToggle" aria-pressed="true" title="סאונד" aria-label="סאונד">🔊</button>
+          <button class="toggle" id="vibeToggle" aria-pressed="true" title="רטט" aria-label="רטט" hidden>📳</button>
+        </div>
+      </header>
+
+      <main class="layout">
+        <section class="stage">
+          <div class="score">
+            <div class="count" id="count">0</div>
+            <div class="count-label"><img class="coin" src="./coin.png" alt="" />דבירים</div>
+            <div class="rates">
+              <b id="perClick">1</b> ללחיצה · <b id="perSec">0</b> לשנייה
+            </div>
+          </div>
+
+          <div class="clicker">
+            <div class="rays"></div>
+            <div class="glow"></div>
+            <div class="combo" id="combo"></div>
+            <div class="dvir-hover">
+              <button class="dvir" id="dvir" aria-label="ללחוץ על דביר">
+                <img src="./dvir.webp" alt="" width="720" height="720" draggable="false" />
+              </button>
+            </div>
+          </div>
+
+          <p class="hint" id="hint">לחצו על דביר! 👆</p>
+        </section>
+
+        <aside class="shop">
+          <h2>🛒 חנות שדרוגים</h2>
+          <ul class="items" id="items"></ul>
+          <div class="stats">
+            <div class="stat"><span>סה״כ לחיצות</span><b id="statClicks">0</b></div>
+            <div class="stat"><span>סה״כ דבירים שנאספו</span><b id="statEarned">0</b></div>
+          </div>
+          <button class="reset" id="reset">איפוס התקדמות</button>
+        </aside>
+      </main>
+    </div>
+
+    <canvas id="fx" dir="ltr"></canvas>
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+    <script>
+      (() => {
+        "use strict";
+
+        // ---------------------------------------------------------------
+        // Data
+        // ---------------------------------------------------------------
+        const SAVE_KEY = "dvir-clicker-save-v1";
+        const COST_GROWTH = 1.15;
+        const OFFLINE_CAP_SECONDS = 8 * 60 * 60;
+
+        // click: added to each click. sec: added per second.
+        const UPGRADES = [
+          { id: "finger", icon: "👆", name: "אצבע מאומנת", click: 1, base: 15 },
+          { id: "auto", icon: "🤖", name: "קליקר אוטומטי", sec: 1, base: 50 },
+          { id: "clone", icon: "👯", name: "שיבוט של דביר", sec: 6, base: 400 },
+          { id: "iron", icon: "💪", name: "יד ברזל", click: 12, base: 2000 },
+          { id: "class", icon: "🏫", name: "כל הכיתה לוחצת", sec: 40, base: 5000 },
+          { id: "factory", icon: "🏭", name: "מפעל דבירים", sec: 200, base: 40000 },
+          { id: "golden", icon: "✨", name: "אצבע זהב", click: 400, base: 250000 },
+          { id: "space", icon: "🛸", name: "דביר בחלל", sec: 1200, base: 400000 },
+          { id: "empire", icon: "👑", name: "אימפריית דביר", sec: 8000, base: 5000000 },
+        ];
+
+        // 100, 500, 1000, 5000, ... lifetime totals that trigger a celebration.
+        const MILESTONES = [];
+        for (let p = 100; p <= 1e15; p *= 10) MILESTONES.push(p, p * 5);
+
+        const coinImg = new Image();
+        coinImg.src = "./coin.png";
+
+        const CONFETTI_COLORS = ["#ffc42e", "#ff4f8b", "#3ae0ff", "#7cff6b", "#b388ff", "#ffffff", "#ff8a3d"];
+
+        const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+        const canVibrate = typeof navigator.vibrate === "function";
+
+        // ---------------------------------------------------------------
+        // State + persistence
+        // ---------------------------------------------------------------
+        const state = {
+          count: 0,
+          totalEarned: 0,
+          totalClicks: 0,
+          owned: {},
+          milestone: 0,
+          sound: true,
+          vibe: true,
+          lastSeen: Date.now(),
+        };
+
+        function load() {
+          try {
+            const raw = localStorage.getItem(SAVE_KEY);
+            if (!raw) return;
+            const saved = JSON.parse(raw);
+            Object.assign(state, saved, { owned: { ...(saved.owned || {}) } });
+          } catch (_) {
+            /* storage blocked or corrupted: start fresh */
+          }
+        }
+
+        function save() {
+          state.lastSeen = Date.now();
+          try {
+            localStorage.setItem(SAVE_KEY, JSON.stringify(state));
+          } catch (_) {
+            /* storage blocked: progress just won't persist */
+          }
+        }
+
+        const owned = (u) => state.owned[u.id] || 0;
+        const costOf = (u) => Math.ceil(u.base * Math.pow(COST_GROWTH, owned(u)));
+        const perClick = () => UPGRADES.reduce((n, u) => n + (u.click || 0) * owned(u), 1);
+        const perSec = () => UPGRADES.reduce((n, u) => n + (u.sec || 0) * owned(u), 0);
+
+        function earn(n) {
+          state.count += n;
+          state.totalEarned += n;
+        }
+
+        // ---------------------------------------------------------------
+        // Formatting
+        // ---------------------------------------------------------------
+        const BIG = [
+          [1e18, "קווינטיליון"],
+          [1e15, "קוודריליון"],
+          [1e12, "טריליון"],
+          [1e9, "מיליארד"],
+          [1e6, "מיליון"],
+        ];
+        const intFmt = new Intl.NumberFormat("he-IL", { maximumFractionDigits: 0 });
+
+        // Wrap in LRI/PDI so "+5" stays "+5" inside right-to-left text.
+        const ltr = (text) => "\u2066" + text + "\u2069";
+
+        function fmt(n) {
+          for (const [v, word] of BIG) {
+            if (n >= v) return (n / v).toFixed(2).replace(/\.?0+$/, "") + " " + word;
+          }
+          return intFmt.format(Math.floor(n));
+        }
+
+        // ---------------------------------------------------------------
+        // DOM
+        // ---------------------------------------------------------------
+        const $ = (id) => document.getElementById(id);
+        const app = $("app");
+        const dvir = $("dvir");
+        const countEl = $("count");
+        const perClickEl = $("perClick");
+        const perSecEl = $("perSec");
+        const comboEl = $("combo");
+        const hintEl = $("hint");
+        const itemsEl = $("items");
+        const statClicksEl = $("statClicks");
+        const statEarnedEl = $("statEarned");
+        const toastEl = $("toast");
+        const soundToggle = $("soundToggle");
+        const vibeToggle = $("vibeToggle");
+
+        const itemEls = {};
+        for (const u of UPGRADES) {
+          const li = document.createElement("li");
+          li.innerHTML = `
+            <button class="item" type="button">
+              <span class="item-icon" aria-hidden="true"></span>
+              <span>
+                <span class="item-name"></span>
+                <span class="item-desc"></span>
+                <span class="item-cost"><img class="coin" src="./coin.png" alt="" /><span></span></span>
+              </span>
+              <span class="item-owned"></span>
+            </button>`;
+          const btn = li.firstElementChild;
+          btn.addEventListener("click", () => buy(u, btn));
+          itemsEl.appendChild(li);
+          itemEls[u.id] = {
+            btn,
+            icon: btn.querySelector(".item-icon"),
+            name: btn.querySelector(".item-name"),
+            desc: btn.querySelector(".item-desc"),
+            cost: btn.querySelector(".item-cost span"),
+            owned: btn.querySelector(".item-owned"),
+          };
+        }
+
+        function isRevealed(u, i) {
+          return i < 2 || owned(u) > 0 || state.totalEarned >= u.base * 0.5;
+        }
+
+        let lastShopKey = "";
+        function renderShop() {
+          // Only touch the DOM when something that affects the shop changed.
+          const key = UPGRADES.map((u, i) => [owned(u), state.count >= costOf(u), isRevealed(u, i)].join()).join("|");
+          if (key === lastShopKey) return;
+          lastShopKey = key;
+          UPGRADES.forEach((u, i) => {
+            const el = itemEls[u.id];
+            const revealed = isRevealed(u, i);
+            const cost = costOf(u);
+            el.btn.classList.toggle("locked", !revealed);
+            el.btn.disabled = !revealed || state.count < cost;
+            el.icon.textContent = u.icon;
+            el.name.textContent = revealed ? u.name : "???";
+            el.desc.textContent = revealed
+              ? u.click
+                ? `${ltr("+" + fmt(u.click))} ללחיצה`
+                : `${ltr("+" + fmt(u.sec))} לשנייה`
+              : "ממשיכים ללחוץ כדי לגלות";
+            el.cost.textContent = fmt(cost);
+            el.owned.textContent = owned(u) || "";
+          });
+        }
+
+        let shownCount = -1;
+        function renderScore() {
+          const c = Math.floor(state.count);
+          if (c !== shownCount) {
+            shownCount = c;
+            countEl.textContent = fmt(c);
+          }
+        }
+
+        function renderRates() {
+          perClickEl.textContent = fmt(perClick());
+          perSecEl.textContent = fmt(perSec());
+          statClicksEl.textContent = fmt(state.totalClicks);
+          statEarnedEl.textContent = fmt(state.totalEarned);
+        }
+
+        function renderToggles() {
+          soundToggle.setAttribute("aria-pressed", state.sound);
+          soundToggle.textContent = state.sound ? "🔊" : "🔇";
+          vibeToggle.hidden = !canVibrate;
+          vibeToggle.setAttribute("aria-pressed", state.vibe);
+        }
+
+        let toastTimer = 0;
+        function toast(text, ms = 2600) {
+          toastEl.textContent = text;
+          toastEl.classList.add("show");
+          clearTimeout(toastTimer);
+          toastTimer = setTimeout(() => toastEl.classList.remove("show"), ms);
+        }
+
+        // ---------------------------------------------------------------
+        // Sound (synthesised, no audio files)
+        // ---------------------------------------------------------------
+        let audio = null;
+        let master = null;
+
+        function ac() {
+          if (!audio) {
+            const Ctx = window.AudioContext || window.webkitAudioContext;
+            if (!Ctx) return null;
+            audio = new Ctx();
+            master = audio.createGain();
+            master.gain.value = 0.5;
+            master.connect(audio.destination);
+          }
+          if (audio.state === "suspended") audio.resume();
+          return audio;
+        }
+
+        function tone(freq, endFreq, dur, type, vol, delay = 0) {
+          const a = ac();
+          if (!a) return;
+          const t = a.currentTime + delay;
+          const osc = a.createOscillator();
+          const g = a.createGain();
+          osc.type = type;
+          osc.frequency.setValueAtTime(freq, t);
+          osc.frequency.exponentialRampToValueAtTime(endFreq, t + dur);
+          g.gain.setValueAtTime(0.0001, t);
+          g.gain.exponentialRampToValueAtTime(vol, t + 0.008);
+          g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+          osc.connect(g).connect(master);
+          osc.start(t);
+          osc.stop(t + dur + 0.02);
+        }
+
+        function playPop(combo) {
+          if (!state.sound) return;
+          const f = 480 * (1 + Math.min(combo, 30) * 0.025) * (0.94 + Math.random() * 0.12);
+          tone(f, f * 0.35, 0.11, "triangle", 0.35);
+          tone(f * 2, f * 0.9, 0.05, "sine", 0.12);
+        }
+
+        function playBuy() {
+          if (!state.sound) return;
+          tone(988, 988, 0.08, "square", 0.08);
+          tone(1319, 1319, 0.22, "square", 0.08, 0.07);
+        }
+
+        function playFanfare() {
+          if (!state.sound) return;
+          [523, 659, 784, 1047].forEach((f, i) => tone(f, f, 0.25, "triangle", 0.3, i * 0.09));
+          tone(1568, 1568, 0.5, "sine", 0.15, 0.36);
+        }
+
+        function vibrate(pattern) {
+          if (canVibrate && state.vibe) {
+            try {
+              navigator.vibrate(pattern);
+            } catch (_) {}
+          }
+        }
+
+        // ---------------------------------------------------------------
+        // Effects canvas: particles, floating numbers, rings, confetti
+        // ---------------------------------------------------------------
+        const canvas = $("fx");
+        const ctx = canvas.getContext("2d");
+        let dpr = 1;
+        let W = 0;
+        let H = 0;
+        const particles = [];
+        const MAX_PARTICLES = reduceMotion ? 120 : 700;
+
+        function resize() {
+          dpr = Math.min(window.devicePixelRatio || 1, 2);
+          W = window.innerWidth;
+          H = window.innerHeight;
+          canvas.width = Math.round(W * dpr);
+          canvas.height = Math.round(H * dpr);
+          ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        }
+        window.addEventListener("resize", resize);
+        resize();
+
+        const rand = (a, b) => a + Math.random() * (b - a);
+        const pick = (arr) => arr[(Math.random() * arr.length) | 0];
+
+        function add(p) {
+          if (particles.length >= MAX_PARTICLES) particles.shift();
+          particles.push(p);
+        }
+
+        function burst(x, y, amount, coins = 0) {
+          for (let i = 0; i < amount; i++) {
+            const angle = rand(0, Math.PI * 2);
+            const speed = rand(180, 520);
+            add({
+              kind: Math.random() < 0.6 ? "rect" : "dot",
+              x,
+              y,
+              vx: Math.cos(angle) * speed,
+              vy: Math.sin(angle) * speed - 120,
+              g: 950,
+              drag: 1.6,
+              size: rand(5, 10),
+              rot: rand(0, Math.PI),
+              vr: rand(-12, 12),
+              color: pick(CONFETTI_COLORS),
+              life: rand(0.55, 0.95),
+              age: 0,
+            });
+          }
+          for (let i = 0; i < coins; i++) {
+            const angle = rand(-Math.PI * 0.85, -Math.PI * 0.15);
+            const speed = rand(260, 480);
+            add({
+              kind: "coin",
+              x,
+              y,
+              vx: Math.cos(angle) * speed,
+              vy: Math.sin(angle) * speed,
+              g: 1100,
+              drag: 1.2,
+              size: rand(24, 34),
+              spin: rand(6, 11),
+              phase: rand(0, Math.PI * 2),
+              life: rand(0.8, 1.1),
+              age: 0,
+            });
+          }
+          add({ kind: "ring", x, y, life: 0.4, age: 0, size: 70 });
+        }
+
+        function floatText(x, y, text, big) {
+          add({
+            kind: "text",
+            x: x + rand(-18, 18),
+            y: y - 10,
+            vx: rand(-30, 30),
+            vy: -rand(140, 190),
+            g: 0,
+            drag: 0.8,
+            text,
+            size: big ? 40 : 30,
+            life: 1,
+            age: 0,
+          });
+        }
+
+        function confettiRain(amount) {
+          for (let i = 0; i < amount; i++) {
+            const isCoin = Math.random() < 0.25;
+            add({
+              kind: isCoin ? "coin" : "rect",
+              spin: rand(3, 7),
+              x: rand(0, W),
+              y: rand(-H * 0.4, -10),
+              vx: rand(-60, 60),
+              vy: rand(80, 260),
+              g: 260,
+              drag: 0.9,
+              size: isCoin ? rand(26, 40) : rand(7, 13),
+              rot: rand(0, Math.PI),
+              vr: rand(-8, 8),
+              sway: rand(1.5, 4),
+              phase: rand(0, Math.PI * 2),
+              color: pick(CONFETTI_COLORS),
+              life: rand(2.6, 3.6),
+              age: 0,
+            });
+          }
+        }
+
+        function stepParticles(dt) {
+          ctx.clearRect(0, 0, W, H);
+          for (let i = particles.length - 1; i >= 0; i--) {
+            const p = particles[i];
+            p.age += dt;
+            if (p.age >= p.life) {
+              particles.splice(i, 1);
+              continue;
+            }
+            const t = p.age / p.life;
+
+            if (p.kind === "ring") {
+              ctx.globalAlpha = 1 - t;
+              ctx.strokeStyle = "#fff3c4";
+              ctx.lineWidth = 4 * (1 - t) + 1;
+              ctx.beginPath();
+              ctx.arc(p.x, p.y, 12 + p.size * (1 - Math.pow(1 - t, 3)), 0, Math.PI * 2);
+              ctx.stroke();
+              continue;
+            }
+
+            p.vy += p.g * dt;
+            p.vx -= p.vx * p.drag * dt;
+            p.vy -= p.vy * p.drag * dt * 0.5;
+            p.x += p.vx * dt + (p.sway ? Math.sin(p.age * p.sway + p.phase) * 1.2 : 0);
+            p.y += p.vy * dt;
+
+            if (p.kind === "text") {
+              const pop = t < 0.12 ? 0.6 + (t / 0.12) * 0.55 : 1.15 - Math.min(0.15, (t - 0.12) * 0.6);
+              ctx.globalAlpha = t > 0.6 ? 1 - (t - 0.6) / 0.4 : 1;
+              ctx.save();
+              ctx.translate(p.x, p.y);
+              ctx.scale(pop, pop);
+              ctx.font = `900 ${p.size}px Rubik, system-ui, sans-serif`;
+              ctx.direction = "ltr";
+              ctx.textAlign = "center";
+              ctx.textBaseline = "middle";
+              ctx.lineJoin = "round";
+              ctx.lineWidth = 6;
+              ctx.strokeStyle = "#3a1d00";
+              ctx.strokeText(p.text, 0, 0);
+              ctx.fillStyle = "#ffe066";
+              ctx.fillText(p.text, 0, 0);
+              ctx.restore();
+              continue;
+            }
+
+            ctx.globalAlpha = t > 0.7 ? 1 - (t - 0.7) / 0.3 : 1;
+
+            if (p.kind === "coin") {
+              const half = p.size / 2;
+              ctx.save();
+              ctx.translate(p.x, p.y);
+              ctx.scale(Math.max(0.08, Math.abs(Math.cos(p.age * p.spin + p.phase))), 1);
+              if (coinImg.complete && coinImg.naturalWidth) {
+                ctx.drawImage(coinImg, -half, -half, p.size, p.size);
+              } else {
+                ctx.fillStyle = "#ffc42e";
+                ctx.beginPath();
+                ctx.arc(0, 0, half, 0, Math.PI * 2);
+                ctx.fill();
+              }
+              ctx.restore();
+              continue;
+            }
+
+            ctx.fillStyle = p.color;
+            if (p.kind === "dot") {
+              ctx.beginPath();
+              ctx.arc(p.x, p.y, p.size * 0.5, 0, Math.PI * 2);
+              ctx.fill();
+            } else {
+              p.rot += p.vr * dt;
+              ctx.save();
+              ctx.translate(p.x, p.y);
+              ctx.rotate(p.rot);
+              // Squash the width over time so confetti looks like it flips.
+              ctx.scale(Math.cos(p.age * 9 + p.rot), 1);
+              ctx.fillRect(-p.size / 2, -p.size * 0.3, p.size, p.size * 0.6);
+              ctx.restore();
+            }
+          }
+          ctx.globalAlpha = 1;
+        }
+
+        // ---------------------------------------------------------------
+        // Dvir squish (spring) and screen shake
+        // ---------------------------------------------------------------
+        const squish = { s: 0, v: 0, r: 0, vr: 0 };
+        let trauma = 0;
+
+        function stepSpring(dt) {
+          // Underdamped springs so rapid clicks pile up and bounce back.
+          squish.v += (-520 * squish.s - 20 * squish.v) * dt;
+          squish.s = Math.max(-0.2, Math.min(0.15, squish.s + squish.v * dt));
+          squish.vr += (-320 * squish.r - 14 * squish.vr) * dt;
+          squish.r = Math.max(-12, Math.min(12, squish.r + squish.vr * dt));
+          const still = Math.abs(squish.s) < 1e-4 && Math.abs(squish.v) < 1e-3 && Math.abs(squish.r) < 1e-2;
+          dvir.style.transform = still ? "" : `scale(${1 + squish.s}) rotate(${squish.r}deg)`;
+        }
+
+        function stepShake(dt) {
+          if (reduceMotion || trauma <= 0) {
+            if (app.style.transform) app.style.transform = "";
+            trauma = 0;
+            return;
+          }
+          trauma = Math.max(0, trauma - dt * 1.5);
+          const k = trauma * trauma;
+          const x = 16 * k * rand(-1, 1);
+          const y = 16 * k * rand(-1, 1);
+          const r = 1.4 * k * rand(-1, 1);
+          app.style.transform = `translate(${x}px, ${y}px) rotate(${r}deg)`;
+        }
+
+        function shake(amount, cap = 1) {
+          if (trauma < cap) trauma = Math.min(cap, trauma + amount);
+        }
+
+        // ---------------------------------------------------------------
+        // Clicking
+        // ---------------------------------------------------------------
+        let combo = 0;
+        let lastClickAt = 0;
+        let comboTimer = 0;
+        let hintGone = false;
+
+        function hit(x, y) {
+          const now = performance.now();
+          combo = now - lastClickAt < 380 ? combo + 1 : 1;
+          lastClickAt = now;
+
+          const gain = perClick();
+          earn(gain);
+          state.totalClicks += 1;
+
+          // Squish + tilt toward the side that was hit.
+          const rect = dvir.getBoundingClientRect();
+          const dx = (x - (rect.left + rect.width / 2)) / (rect.width / 2);
+          squish.v -= 3.2;
+          squish.vr += dx * 110;
+
+          const c = Math.min(combo, 24);
+          floatText(x, y, "+" + fmt(gain), combo >= 15);
+          burst(x, y, reduceMotion ? 4 : 8 + Math.round(c / 2), reduceMotion ? 1 : 2 + Math.round(c / 8));
+          playPop(combo);
+          vibrate(combo >= 10 ? 18 : 10);
+
+          if (combo >= 6) shake(0.05 + c * 0.006, 0.5);
+
+          if (combo >= 5) {
+            comboEl.textContent = `🔥 קומבו x${combo}`;
+            comboEl.classList.add("show");
+          }
+          clearTimeout(comboTimer);
+          comboTimer = setTimeout(() => {
+            comboEl.classList.remove("show");
+            combo = 0;
+          }, 700);
+
+          if (!hintGone) {
+            hintGone = true;
+            hintEl.classList.add("gone");
+          }
+
+          renderScore();
+          renderRates();
+        }
+
+        dvir.addEventListener("pointerdown", (e) => {
+          if (e.button !== 0) return;
+          e.preventDefault();
+          hit(e.clientX, e.clientY);
+        });
+
+        // Keyboard players: Space / Enter, one hit per key press.
+        dvir.addEventListener("keydown", (e) => {
+          if (e.key !== " " && e.key !== "Enter") return;
+          e.preventDefault();
+          if (e.repeat) return;
+          const r = dvir.getBoundingClientRect();
+          hit(r.left + r.width / 2 + rand(-r.width / 5, r.width / 5), r.top + r.height / 2 + rand(-r.height / 5, r.height / 5));
+        });
+
+        dvir.addEventListener("contextmenu", (e) => e.preventDefault());
+
+        // ---------------------------------------------------------------
+        // Shop
+        // ---------------------------------------------------------------
+        function buy(u, btn) {
+          const cost = costOf(u);
+          if (state.count < cost) return;
+          state.count -= cost;
+          state.owned[u.id] = owned(u) + 1;
+          playBuy();
+          vibrate(25);
+          btn.classList.remove("bought");
+          void btn.offsetWidth;
+          btn.classList.add("bought");
+          const r = btn.getBoundingClientRect();
+          burst(r.left + 38, r.top + r.height / 2, reduceMotion ? 4 : 14);
+          renderShop();
+          renderScore();
+          renderRates();
+          save();
+        }
+
+        // ---------------------------------------------------------------
+        // Milestones
+        // ---------------------------------------------------------------
+        function checkMilestones() {
+          let hitOne = false;
+          while (state.milestone < MILESTONES.length && state.totalEarned >= MILESTONES[state.milestone]) {
+            state.milestone += 1;
+            hitOne = true;
+          }
+          if (!hitOne) return;
+          const value = MILESTONES[state.milestone - 1];
+          toast(`🎉 ${fmt(value)} דבירים! 🎉`);
+          confettiRain(reduceMotion ? 40 : 170);
+          shake(0.85);
+          playFanfare();
+          vibrate([40, 50, 40, 50, 80]);
+        }
+
+        // ---------------------------------------------------------------
+        // Toggles + reset
+        // ---------------------------------------------------------------
+        soundToggle.addEventListener("click", () => {
+          state.sound = !state.sound;
+          renderToggles();
+          if (state.sound) playPop(1);
+          save();
+        });
+
+        vibeToggle.addEventListener("click", () => {
+          state.vibe = !state.vibe;
+          renderToggles();
+          vibrate(30);
+          save();
+        });
+
+        $("reset").addEventListener("click", () => {
+          if (!confirm("בטוחים? כל ההתקדמות תימחק.")) return;
+          Object.assign(state, { count: 0, totalEarned: 0, totalClicks: 0, owned: {}, milestone: 0 });
+          lastShopKey = "";
+          hintGone = false;
+          hintEl.classList.remove("gone");
+          save();
+          renderShop();
+          renderScore();
+          renderRates();
+        });
+
+        // ---------------------------------------------------------------
+        // Main loop
+        // ---------------------------------------------------------------
+        let last = performance.now();
+        let uiTimer = 0;
+        let titleTimer = 0;
+
+        function frame(now) {
+          const elapsed = (now - last) / 1000;
+          last = now;
+          // Income uses real elapsed time (so a backgrounded tab still earns),
+          // physics uses a clamped step so nothing explodes after a pause.
+          earn(perSec() * elapsed);
+          const dt = Math.min(elapsed, 1 / 30);
+
+          stepSpring(dt);
+          stepShake(dt);
+          stepParticles(dt);
+          renderScore();
+
+          uiTimer += elapsed;
+          if (uiTimer > 0.1) {
+            uiTimer = 0;
+            checkMilestones();
+            renderShop();
+            statEarnedEl.textContent = fmt(state.totalEarned);
+          }
+
+          titleTimer += elapsed;
+          if (titleTimer > 1) {
+            titleTimer = 0;
+            document.title = `${fmt(state.count)} דבירים · Dvir Clicker`;
+          }
+
+          requestAnimationFrame(frame);
+        }
+
+        // ---------------------------------------------------------------
+        // Boot
+        // ---------------------------------------------------------------
+        load();
+
+        const away = Math.min(OFFLINE_CAP_SECONDS, Math.max(0, (Date.now() - state.lastSeen) / 1000));
+        const offline = perSec() * away;
+        if (offline >= 1) {
+          earn(offline);
+          setTimeout(() => toast(`ברוכים השבים! בזמן שלא הייתם נאספו ${fmt(offline)} דבירים 💰`, 4200), 400);
+        }
+
+        if (state.totalClicks > 0) {
+          hintGone = true;
+          hintEl.classList.add("gone");
+        }
+
+        // Don't replay milestones that were already passed before this visit.
+        while (state.milestone < MILESTONES.length && state.totalEarned >= MILESTONES[state.milestone]) {
+          state.milestone += 1;
+        }
+
+        renderToggles();
+        renderShop();
+        renderScore();
+        renderRates();
+
+        setInterval(save, 5000);
+        document.addEventListener("visibilitychange", () => {
+          if (document.visibilityState === "hidden") save();
+        });
+        window.addEventListener("pagehide", save);
+
+        requestAnimationFrame((t) => {
+          last = t;
+          requestAnimationFrame(frame);
+        });
+      })();
+    </script>
+  </body>
+</html>
