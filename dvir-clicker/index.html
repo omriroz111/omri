@@ -7,13 +7,25 @@
     <title>Dvir Clicker</title>
     <meta name="description" content="לוחצים על דביר, אוספים דבירים, קונים שדרוגים." />
     <link rel="icon" type="image/png" href="./coin.png" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;700;800;900&display=swap"
-      rel="stylesheet"
-    />
+    <link rel="preload" href="./fonts/rubik-hebrew.woff2" as="font" type="font/woff2" crossorigin />
     <style>
+      /* Rubik (SIL OFL 1.1, see fonts/OFL.txt), variable weight 400-900. */
+      @font-face {
+        font-family: "Rubik";
+        font-weight: 400 900;
+        font-display: swap;
+        src: url("./fonts/rubik-hebrew.woff2") format("woff2");
+        unicode-range: U+0307-0308, U+0590-05FF, U+200C-2010, U+20AA, U+25CC, U+FB1D-FB4F;
+      }
+      @font-face {
+        font-family: "Rubik";
+        font-weight: 400 900;
+        font-display: swap;
+        src: url("./fonts/rubik-latin.woff2") format("woff2");
+        unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308,
+          U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+      }
+
       :root {
         --bg: #120e26;
         --bg-2: #1d1640;
@@ -509,7 +521,8 @@
         top: max(16px, env(safe-area-inset-top));
         left: 50%;
         z-index: 20;
-        translate: -50% -140%;
+        /* Fully above the screen edge whatever its height (an empty toast is short). */
+        translate: -50% calc(-100% - 60px);
         max-width: calc(100vw - 32px);
         padding: 12px 20px;
         border-radius: 16px;
@@ -525,6 +538,52 @@
 
       .toast.show {
         translate: -50% 0;
+      }
+
+      /* Phones (portrait): Dvir stays on screen, only the shop scrolls. */
+      @media (max-width: 899px) and (orientation: portrait) {
+        :root {
+          --dvir-size: min(64vw, 33vh, 400px);
+        }
+        .app {
+          height: 100vh;
+          height: 100dvh;
+          overflow: hidden;
+          overflow: clip;
+        }
+        .layout {
+          grid-template-rows: auto minmax(0, 1fr);
+          min-height: 0;
+          padding-bottom: max(12px, env(safe-area-inset-bottom));
+        }
+        .stage {
+          gap: 4px;
+        }
+        .clicker {
+          margin: calc(var(--dvir-size) * 0.08) 0;
+        }
+        .hint {
+          font-size: 16px;
+        }
+        .shop {
+          overflow-y: auto;
+          overscroll-behavior: contain;
+          padding: 12px;
+          gap: 10px;
+        }
+        .shop h2 {
+          font-size: 19px;
+        }
+        .item {
+          grid-template-columns: 44px 1fr auto;
+          gap: 10px;
+          padding: 8px 10px;
+        }
+        .item-icon {
+          width: 44px;
+          height: 44px;
+          font-size: 25px;
+        }
       }
 
       @media (prefers-reduced-motion: reduce) {
@@ -618,7 +677,8 @@
         const CONFETTI_COLORS = ["#ffc42e", "#ff4f8b", "#3ae0ff", "#7cff6b", "#b388ff", "#ffffff", "#ff8a3d"];
 
         const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-        const canVibrate = typeof navigator.vibrate === "function";
+        const nativeApp = window.DvirAndroid;
+        const canVibrate = Boolean(nativeApp) || typeof navigator.vibrate === "function";
 
         // ---------------------------------------------------------------
         // State + persistence
@@ -847,7 +907,8 @@
         function vibrate(pattern) {
           if (canVibrate && state.vibe) {
             try {
-              navigator.vibrate(pattern);
+              if (nativeApp) nativeApp.vibrate(String(pattern));
+              else navigator.vibrate(pattern);
             } catch (_) {}
           }
         }
@@ -1229,7 +1290,11 @@
           last = now;
           // Income uses real elapsed time (so a backgrounded tab still earns),
           // physics uses a clamped step so nothing explodes after a pause.
-          earn(perSec() * elapsed);
+          const gained = perSec() * Math.min(elapsed, OFFLINE_CAP_SECONDS);
+          earn(gained);
+          if (elapsed > 30 && gained >= 1) {
+            toast(`ברוכים השבים! בזמן שלא הייתם נאספו ${fmt(gained)} דבירים 💰`, 4200);
+          }
           const dt = Math.min(elapsed, 1 / 30);
 
           stepSpring(dt);
@@ -1286,6 +1351,7 @@
           if (document.visibilityState === "hidden") save();
         });
         window.addEventListener("pagehide", save);
+        window.dvirSave = save;
 
         requestAnimationFrame((t) => {
           last = t;
