@@ -278,8 +278,14 @@
     } catch (_) {}
   };
 
+  // Browsers block (and log) vibration before the first user gesture.
+  let touched = false;
+  for (const type of ["pointerdown", "keydown"]) {
+    window.addEventListener(type, () => (touched = true), { capture: true, passive: true });
+  }
+
   function vibrate(pattern) {
-    if (!canVibrate || !state.vibe) return;
+    if (!canVibrate || !state.vibe || (!touched && !nativeApp)) return;
     try {
       if (nativeApp) nativeApp.vibrate(String(pattern));
       else navigator.vibrate(pattern);

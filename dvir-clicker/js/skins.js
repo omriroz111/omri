@@ -10,7 +10,9 @@
 //   eyebrows             y 34-36;  nose tip 54.5,47;  left ear 28.5-33 x 40.5-49
 //   face edge at eyes    x 34.5 .. 69;  hair (with outline) x 23 .. 77 at y 26
 //   top of hair          y 3-5 (left side lower), sticker outline peaks at y 1
-// The SVGs may draw outside the box (overflow visible), e.g. a crown above the circle.
+// The SVGs may draw outside the box (overflow visible), but every solid shape stays
+// below y = -9 (the halo's bob included): the game's rates line sits only ~11% of the
+// clicker size above the circle, and an accessory must never cover it.
 //
 // Gradient / clip ids must be unique per page, and the same accessory can be shown
 // several times at once (big clicker + menu thumbnails). Templates therefore use the
@@ -127,6 +129,8 @@
   }
 
   // Party hat: striped cone sunk into the top of his hair, leaning with its slope.
+  // Drawn at 0.9 scale, tilted 21deg (pom-pom top at y -8.7); stroke-width 1.67 x 0.9
+  // keeps the outline as thick as the other accessories'.
   function partySvg() {
     const cone = "M-12.8 0L-1 -21.2Q0 -22.8 1 -21.2L12.8 0Q0 4.5 -12.8 0Z";
     const trim = scallopBand([-13.5, 0], [0, 4.7], [13.5, 0], 10, 1.1);
@@ -146,13 +150,13 @@
         </radialGradient>
         <clipPath id="__ID__-clip"><path d="${cone}"/></clipPath>
       </defs>
-      <g transform="translate(50.8 10.4) rotate(-18)">
+      <g transform="translate(51.2 15.3) rotate(-21) scale(.9)" stroke-width="1.67">
         <ellipse cx="0.8" cy="2.6" rx="15.4" ry="4.3" fill="url(#__ID__-sh)" stroke="none"/>
         <path d="${cone}" fill="url(#__ID__-cone)"/>
         <g clip-path="url(#__ID__-clip)" stroke="none">
           <path d="M-16 -2.2Q0 -3.2 16 -11.4L16 -7.6Q0 0.6 -16 1.6Z" fill="url(#__ID__-stripe)"/>
           <path d="M-16 -10.6Q0 -11.2 16 -19.4L16 -15.8Q0 -7.6 -16 -7Z" fill="url(#__ID__-stripe)"/>
-          <path d="M-16 -19Q0 -19.6 16 -27.8L16 -24.4Q0 -16.2 -16 -15.6Z" fill="url(#__ID__-stripe)"/>
+          <path d="M-7.5 -19.85Q0 -21.08 7.5 -23.98L7.5 -20.58Q0 -17.68 -7.5 -16.45Z" fill="url(#__ID__-stripe)"/>
           <circle cx="-4.2" cy="-5.3" r="1.3" fill="#3ae0ff"/><circle cx="4.8" cy="-9.6" r="1.15" fill="#3ae0ff"/>
           <circle cx="-2.2" cy="-13.4" r="1" fill="#3ae0ff"/><circle cx="2.2" cy="-18" r=".8" fill="#3ae0ff"/>
           <path d="M-9.4 -1.6L-1.7 -19.2" stroke="#fff" stroke-width="1.8" opacity=".42"/>
@@ -239,16 +243,17 @@
     );
   }
 
-  // Crown: gold, five points with pearls, nestled into the top of the hair.
+  // Crown: gold, five low points with pearls, nestled into the top of the hair
+  // (kept wide and low so the top pearl stays below y -9).
   function crownSvg() {
     const body =
-      "M-17 0L-18.8 -13.6L-11.6 -6.8L-8.4 -17.4L-3.6 -7.6L0 -20.4L3.6 -7.6L8.4 -17.4L11.6 -6.8L18.8 -13.6L17 0Q0 3.4 -17 0Z";
+      "M-17 0L-18.8 -11.4L-11.6 -5.8L-8.4 -14.6L-3.6 -6.4L0 -17L3.6 -6.4L8.4 -14.6L11.6 -5.8L18.8 -11.4L17 0Q0 3.4 -17 0Z";
     const pearls = [
-      [-18.8, -13.6],
-      [-8.4, -17.4],
-      [0, -20.4],
-      [8.4, -17.4],
-      [18.8, -13.6],
+      [-18.8, -11.4],
+      [-8.4, -14.6],
+      [0, -17],
+      [8.4, -14.6],
+      [18.8, -11.4],
     ]
       .map(([x, y]) => `<circle cx="${x}" cy="${y}" r="1.75" fill="url(#__ID__-pearl)" stroke-width="1.2"/>`)
       .join("");
@@ -272,44 +277,47 @@
           <stop offset="0" stop-color="#b8f0ff"/><stop offset=".5" stop-color="#2fa8ff"/><stop offset="1" stop-color="#1640a8"/>
         </radialGradient>
       </defs>
-      <g transform="translate(50.8 11.6) rotate(-6) scale(1.12)">
+      <g transform="translate(50.8 12.6) rotate(-6) scale(1.12)">
         <ellipse cx="0.4" cy="2.4" rx="20" ry="4.4" fill="url(#__ID__-sh)" stroke="none"/>
-        <path d="M-16.6 -4Q0 -10.4 16.6 -4L16.6 -1.4Q0 -7.4 -16.6 -1.4Z" fill="#a35a00" stroke-width="1.3"/>
+        <path d="M-16.6 -3.8Q0 -9.6 16.6 -3.8L16.6 -1.4Q0 -7 -16.6 -1.4Z" fill="#a35a00" stroke-width="1.3"/>
         <path d="${body}" fill="url(#__ID__-gold)" stroke-width="1.35"/>
-        <path d="M-16 -2.2L-17.4 -11.4L-15.4 -9.4ZM-7.4 -9.6L-8 -14.8L-6.2 -10.6ZM0.8 -10.2L0.4 -17.6L2 -11Z" fill="#fff" stroke="none" opacity=".7"/>
+        <path d="M-16 -2.2L-17.4 -9.6L-15.4 -7.9ZM-7.4 -8L-8 -12.4L-6.2 -8.8ZM0.8 -8.6L0.4 -14.6L2 -9.2Z" fill="#fff" stroke="none" opacity=".7"/>
         <path d="M-17.3 -4.8Q0 -1.6 17.3 -4.8L17 0Q0 3.4 -17 0Z" fill="url(#__ID__-band)" stroke-width="1.35"/>
         <path d="M-15.6 -2.6Q0 0 15.6 -2.6" fill="none" stroke="#fff" stroke-width=".7" opacity=".55"/>
         <ellipse cx="0" cy="-0.7" rx="2.6" ry="2.1" fill="url(#__ID__-ruby)" stroke-width="1.1"/>
         <path d="M-9.8 -3.4L-8.2 -1.6L-9.8 0.2L-11.4 -1.6Z" fill="url(#__ID__-sapph)" stroke-width="1"/>
         <path d="M9.8 -3.4L11.4 -1.6L9.8 0.2L8.2 -1.6Z" fill="url(#__ID__-sapph)" stroke-width="1"/>
-        <path d="M0 -13.6L1.4 -11.2L0 -9.2L-1.4 -11.2Z" fill="url(#__ID__-ruby)" stroke-width=".9"/>
+        <path d="M0 -11.6L1.35 -9.5L0 -7.7L-1.35 -9.5Z" fill="url(#__ID__-ruby)" stroke-width=".9"/>
         ${pearls}
         <circle cx="-0.8" cy="-1.5" r=".6" fill="#fff" stroke="none"/>
       </g>`,
     );
   }
 
-  // Halo: glowing gold ring floating above his hair (bobs via .dcs-acc-halo in CSS).
+  // Halo: glowing gold ring floating just over his hair (bobs via .dcs-acc-halo in CSS).
+  // Seen almost edge-on (a flat ellipse), so it can hover over the curls and still keep
+  // its top, bob included, below y -9; its front edge may brush the highest curls,
+  // which reads as perspective.
   function haloSvg() {
     const ring =
-      "M-19.6 0A19.6 6.4 0 1 0 19.6 0A19.6 6.4 0 1 0 -19.6 0ZM-14.2 0A14.2 3.1 0 1 1 14.2 0A14.2 3.1 0 1 1 -14.2 0Z";
+      "M-19.8 0A19.8 4.3 0 1 0 19.8 0A19.8 4.3 0 1 0 -19.8 0ZM-13.4 0A13.4 1.55 0 1 1 13.4 0A13.4 1.55 0 1 1 -13.4 0Z";
     return svgWrap(
       "halo",
       `<defs>
         <radialGradient id="__ID__-glow" cx=".5" cy=".5" r=".5">
-          <stop offset="0" stop-color="#fff3a8" stop-opacity=".75"/><stop offset=".55" stop-color="#ffd84a" stop-opacity=".28"/><stop offset="1" stop-color="#ffd84a" stop-opacity="0"/>
+          <stop offset="0" stop-color="#fff3a8" stop-opacity=".9"/><stop offset=".55" stop-color="#ffd84a" stop-opacity=".34"/><stop offset="1" stop-color="#ffd84a" stop-opacity="0"/>
         </radialGradient>
         <linearGradient id="__ID__-ring" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stop-color="#ffc93a"/><stop offset=".55" stop-color="#ffe680"/><stop offset="1" stop-color="#fffbe0"/>
+          <stop offset="0" stop-color="#ffbf2a"/><stop offset=".5" stop-color="#ffe680"/><stop offset="1" stop-color="#fffbe0"/>
         </linearGradient>
       </defs>
-      <g transform="translate(51.5 -6.6) rotate(-5) scale(1.07)">
-        <ellipse cx="0" cy="0" rx="28" ry="11.5" fill="url(#__ID__-glow)" stroke="none"/>
+      <g transform="translate(51.5 -3) rotate(-4)">
+        <ellipse cx="0" cy="0.6" rx="29" ry="7.6" fill="url(#__ID__-glow)" stroke="none"/>
         <path d="${ring}" fill="url(#__ID__-ring)" fill-rule="evenodd" stroke-width="1.3"/>
-        <path d="M-12 4Q0 6.9 12 4" fill="none" stroke="#fff" stroke-width="1.2" opacity=".95"/>
-        <path d="M-16.4 -2.6Q-8 -5.2 2 -5.3" fill="none" stroke="#fff" stroke-width=".8" opacity=".6"/>
+        <path d="M-11 2.3Q0 3.7 11 2.3" fill="none" stroke="#fff" stroke-width="1.1" opacity=".95"/>
+        <path d="M-16.2 -1.5Q-9 -3.6 1 -3.05" fill="none" stroke="#fff" stroke-width=".7" opacity=".6"/>
         <g class="dcs-twinkle" fill="#fff" stroke="none">
-          <path d="${sparkle(-22.5, -4.5, 2.6)}"/><path d="${sparkle(21.5, 3.5, 2)}"/><path d="${sparkle(13, -9.5, 1.5)}"/>
+          <path d="${sparkle(-24.2, -1, 2.5)}"/><path d="${sparkle(23.6, 2.4, 1.9)}"/><path d="${sparkle(-15.6, 5.8, 1.5)}"/>
         </g>
       </g>`,
     );

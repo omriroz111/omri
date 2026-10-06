@@ -22,6 +22,11 @@
    is audible. Over three passes the arrangement changes (lead rests, then
    switches to a softer flute voice) so the loop does not wear thin.
 
+   Unlocking: browsers only let audio start inside a user gesture, and a
+   touch pointerdown is not one (only pointerup / touchend / click are).
+   So after game code has called init() once, the module itself retries the
+   unlock on every activating event until the context is running.
+
    API:
      DCAudio.init()                 create/resume the context (call from gestures)
      DCAudio.setSfxEnabled(bool)
@@ -804,9 +809,13 @@
   let timer = 0;
   let stopTimer = 0;
   let lastGestureResume = 0; // when init() last asked a suspended context to resume
+  let everRan = false; // context has been running at least once (unlocked)
   let analyser = null;
   let meterBuf = null;
   const seq = { step: 0, nextTime: 0, intensity: 0, pending: 0 };
+  // The music fade ramp, tracked here because older WebKit reports the last
+  // set value (not the automated one) from AudioParam.value mid-ramp.
+  const fade = { from: 0, to: 0, t0: 0, t1: 0 };
 
   const paused = () => appPaused || hidden;
 
@@ -826,7 +835,10 @@
 
   function runScheduler() {
     if (timer || !ctx || ctx.state !== "running" || paused() || musicState === "off") return;
-    seq.nextTime = ctx.currentTime + 0.05;
+    // After a pause, carry on from the last booked step so notes already
+    // scheduled before the suspend never overlap the new ones. (A fresh start
+    // sets nextTime to 0, so this picks "now".)
+    seq.nextTime = Math.max(seq.nextTime, ctx.currentTime + 0.05);
     timer = setInterval(tick, TICK_MS);
     tick();
   }
@@ -836,13 +848,23 @@
     timer = 0;
   }
 
+  function fadeValue(now) {
+    if (now >= fade.t1) return fade.to;
+    if (now <= fade.t0) return fade.from;
+    return fade.from + ((fade.to - fade.from) * (now - fade.t0)) / (fade.t1 - fade.t0);
+  }
+
   function fadeTo(v, dur) {
     const p = kit.musicFade.gain;
     const now = ctx.currentTime;
-    const from = p.value;
+    const from = fadeValue(now);
     p.cancelScheduledValues(now);
     p.setValueAtTime(from, now);
     p.linearRampToValueAtTime(v, now + dur);
+    fade.from = from;
+    fade.to = v;
+    fade.t0 = now;
+    fade.t1 = now + dur;
   }
 
   function startMusic() {
@@ -851,9 +873,10 @@
     stopTimer = 0;
     if (musicState === "off") {
       seq.step = 0;
+      seq.nextTime = 0;
       seq.intensity = seq.pending;
-      kit.musicFade.gain.cancelScheduledValues(ctx.currentTime);
-      kit.musicFade.gain.setValueAtTime(0, ctx.currentTime);
+      fade.to = 0; // fade in from silence
+      fade.t1 = 0;
       fadeTo(1, FADE_IN);
     } else if (musicState === "stopping") {
       fadeTo(1, FADE_IN * 0.5);
@@ -873,11 +896,13 @@
     }, FADE_OUT * 1000 + 80);
   }
 
-  // Re-evaluate whether the scheduler should be running.
+  // Re-evaluate whether the scheduler should be running. It also stops when
+  // the OS suspends the context (e.g. iOS "interrupted" by a phone call).
   function sync() {
     if (!ctx) return;
-    if (paused()) haltScheduler();
-    else if (ctx.state === "running" && musicState !== "off") runScheduler();
+    if (ctx.state === "running") everRan = true;
+    if (paused() || ctx.state !== "running") haltScheduler();
+    else if (musicState !== "off") runScheduler();
   }
 
   function askResume() {
@@ -928,12 +953,45 @@
     } catch (_) {}
   }
 
+  // Is the current event a user gesture? Unknown (no API, e.g. Safari 15)
+  // counts as yes.
+  function gestureActive() {
+    const ua = typeof navigator !== "undefined" && navigator.userActivation;
+    return !ua || ua.isActive;
+  }
+
+  // Ask a suspended context to start from inside a user gesture.
+  function unlock() {
+    lastGestureResume = Date.now();
+    unlockTick();
+    askResume();
+  }
+
   if (typeof document !== "undefined" && document.addEventListener) {
     document.addEventListener("visibilitychange", () => {
       try {
         hidden = document.visibilityState === "hidden";
         applyPause();
       } catch (_) {}
+    });
+  }
+
+  // A touch pointerdown is not a user gesture (pointerup, touchend and click
+  // are), so an init() called from one leaves the context suspended. Retry on
+  // every activating event; it does nothing until game code has called init()
+  // and is just a state check once the context runs. Also recovers from iOS
+  // "interrupted" (phone call, Siri) on the next tap.
+  if (typeof window !== "undefined" && window.addEventListener) {
+    ["pointerup", "touchend", "click", "keydown"].forEach((type) => {
+      window.addEventListener(
+        type,
+        () => {
+          try {
+            if (ctx && !paused() && ctx.state !== "running" && ctx.state !== "closed") unlock();
+          } catch (_) {}
+        },
+        { capture: true, passive: true },
+      );
     });
   }
 
@@ -1074,10 +1132,13 @@
       try {
         if (!AC) return;
         if (!ctx) createContext();
+        if (ctx.state === "running") everRan = true;
         if (!paused() && ctx.state !== "running") {
-          lastGestureResume = Date.now();
-          unlockTick();
-          askResume();
+          // Inside a touch pointerdown a first resume() can only fail (and
+          // log autoplay warnings); the gesture listener retries on pointerup.
+          // Sounds played now are still booked and play once it starts.
+          if (everRan || gestureActive()) unlock();
+          else lastGestureResume = Date.now();
         }
         if (musicOn && musicState !== "on") startMusic();
         else sync();
@@ -1136,6 +1197,8 @@
     // Test hook: render music + every effect offline with the same synthesis
     // code. Resolves { peak, rms, musicPeak, musicRms, popBurstPeak,
     // perSoundPeaks, perSoundRms, ... } (or { error }).
+    // Test only: runs 17 OfflineAudioContexts at once (~26 MB, several
+    // seconds of CPU). Never call it from game code.
     _renderOffline(seconds, keepBuffers) {
       try {
         return renderOffline(seconds, keepBuffers);
