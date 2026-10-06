@@ -106,9 +106,9 @@
       runEarned: saved.v ? num(saved.runEarned) : num(saved.totalEarned),
       totalClicks: Math.floor(num(saved.totalClicks)),
       owned,
-      upgrades: arr(saved.upgrades).filter((id) => UPG[id]),
-      achievements: arr(saved.achievements).filter((id) => ACH[id]),
-      seenAch: arr(saved.seenAch),
+      upgrades: Array.from(new Set(arr(saved.upgrades).filter((id) => UPG[id]))),
+      achievements: Array.from(new Set(arr(saved.achievements).filter((id) => ACH[id]))),
+      seenAch: Array.from(new Set(arr(saved.seenAch))),
       stars: Math.floor(num(saved.stars)),
       rebirths: Math.floor(num(saved.rebirths)),
       golden: Math.floor(num(saved.golden)),
@@ -148,9 +148,9 @@
 
   function earn(n) {
     if (!(n > 0)) return;
-    state.count += n;
-    state.runEarned += n;
-    state.totalEarned += n;
+    state.count = Math.min(state.count + n, Number.MAX_VALUE);
+    state.runEarned = Math.min(state.runEarned + n, Number.MAX_VALUE);
+    state.totalEarned = Math.min(state.totalEarned + n, Number.MAX_VALUE);
   }
 
   // ---------------------------------------------------------------
@@ -211,19 +211,36 @@
   const intFmt = new Intl.NumberFormat("he-IL", { maximumFractionDigits: 0 });
 
   // Small non-integers keep one decimal ("2.5 לשנייה"); counts are floored by the caller.
+  const sci = (n) => n.toExponential(2).replace("e+", "e");
+
   function fmt(n) {
     if (!isFinite(n)) return "∞";
-    if (n >= 1e36) return n.toExponential(2).replace("e+", "e");
-    for (const [v, word] of BIG) {
-      if (n >= v) return (n / v).toFixed(2).replace(/\.?0+$/, "") + " " + word;
+    for (let i = 0; i < BIG.length; i++) {
+      const [v, word] = BIG[i];
+      if (n < v) continue;
+      // Round first, so 999,999,999 becomes "1 מיליארד" rather than "1000 מיליון".
+      if (Math.round((n / v) * 100) / 100 >= 1000) return i === 0 ? sci(n) : fmtUnit(n / BIG[i - 1][0], BIG[i - 1][1]);
+      return fmtUnit(n / v, word);
     }
-    if (n < 100 && n % 1 > 0.05) return n.toFixed(1);
+    if (n < 100 && n % 1 > 0.05) return n.toFixed(1).replace(/\.0$/, "");
     return intFmt.format(Math.floor(n));
   }
 
-  // Wrap in LRI/PDI so "+5" stays "+5" inside right-to-left text.
-  const ltr = (text) => "⁦" + text + "⁩";
-  const plus = (n) => ltr("+" + fmt(n));
+  const fmtUnit = (x, word) => (Math.round(x * 100) / 100).toFixed(2).replace(/\.?0+$/, "") + " " + word;
+
+  // Wrap in LRI/PDI so "+5" stays "+5" inside right-to-left text. Only the sign
+  // and digits are isolated; a magnitude word has to stay in the RTL flow.
+  const ltr = (text) => "\u2066" + text + "\u2069";
+  const splitNum = (str) => {
+    const i = str.indexOf(" ");
+    return i < 0 ? [str, ""] : [str.slice(0, i), str.slice(i)];
+  };
+  const plus = (n) => {
+    const [num, word] = splitNum(fmt(n));
+    return ltr("+" + num) + word;
+  };
+  // Percent bonus; huge ones read better as a multiplier.
+  const pct = (p) => (p < 1e6 ? ltr("+" + fmt(p) + "%") : "פי " + fmt(1 + p / 100));
 
   // ---------------------------------------------------------------
   // DOM
@@ -318,7 +335,8 @@
   })();
 
   function resize() {
-    dpr = Math.min(window.devicePixelRatio || 1, 2);
+    // Fast-moving particles don't need full phone resolution; fewer pixels per frame to upload.
+    dpr = Math.min(window.devicePixelRatio || 1, window.matchMedia("(pointer: coarse)").matches ? 1.5 : 2);
     W = window.innerWidth;
     H = window.innerHeight;
     canvas.width = Math.round(W * dpr);
@@ -387,19 +405,40 @@
     });
   }
 
+  const MAX_TEXTS = 5;
+
   function floatText(x, y, text, opts = {}) {
+    // Keep only a few labels alive so rapid tapping never becomes an unreadable block.
+    let texts = 0;
+    for (let i = particles.length - 1; i >= 0; i--) {
+      if (particles[i].kind === "text" && ++texts >= MAX_TEXTS) {
+        particles.splice(i, 1);
+        break;
+      }
+    }
+    // Shrink long labels to roughly the clicker's width.
+    const base = opts.size || 30;
+    const maxW = Math.max(150, dvir.offsetWidth * 0.75);
+    const size = Math.min(base, maxW / (Math.max(1, text.length) * 0.56));
     add({
       kind: "text",
       x: x + rand(-18, 18), y: y - 10,
       vx: rand(-30, 30), vy: -(opts.speed || rand(140, 190)),
       g: 0, drag: 0.8,
       text,
-      size: opts.size || 30,
+      size,
       fill: opts.fill || "#ffe066",
       stroke: opts.stroke || "#3a1d00",
       dir: opts.dir || "ltr",
       life: opts.life || 1, age: 0,
     });
+  }
+
+  // "+N" labels: a magnitude word ("+3 מיליון") must be drawn right-to-left.
+  function floatNum(x, y, n, opts = {}) {
+    const [num, word] = splitNum(fmt(n));
+    if (!word) floatText(x, y, "+" + num, opts);
+    else floatText(x, y, ltr("+" + num) + word, { ...opts, dir: "rtl" });
   }
 
   function confettiRain(amount, coinsShare = 0.25) {
@@ -420,7 +459,16 @@
     }
   }
 
+  let fxDirty = false;
+
   function stepParticles(dt) {
+    if (!particles.length) {
+      // Nothing to draw: clear once, then leave the canvas alone (saves a full-screen upload per frame).
+      if (fxDirty) ctx.clearRect(0, 0, W, H);
+      fxDirty = false;
+      return;
+    }
+    fxDirty = true;
     ctx.clearRect(0, 0, W, H);
     for (let i = particles.length - 1; i >= 0; i--) {
       const p = particles[i];
@@ -679,14 +727,14 @@
     const clickFrenzy = buffOn("clickfrenzy");
     if (crit) {
       floatText(x, y - 64, "קריטי!", { size: 30, fill: "#fff3c4", stroke: "#3a0d00", speed: 120, life: 1.3, dir: "rtl" });
-      floatText(x, y - 20, "+" + fmt(gain), { size: 42, fill: "#ff9a3d", stroke: "#3a0d00", speed: 120, life: 1.3 });
+      floatNum(x, y - 20, gain, { size: 42, fill: "#ff9a3d", stroke: "#3a0d00", speed: 120, life: 1.3 });
       starBurst(x, y, reduceMotion ? 6 : 22);
       burst(x, y, reduceMotion ? 6 : 26, reduceMotion ? 2 : 8);
       sfx("crit");
       vibrate(30);
       shake(0.45);
     } else {
-      floatText(x, y, "+" + fmt(gain), clickFrenzy ? { size: 36, fill: "#ff8fc0", stroke: "#4a0020" } : { size: combo >= 15 ? 38 : 30 });
+      floatNum(x, y, gain, clickFrenzy ? { size: 36, fill: "#ff8fc0", stroke: "#4a0020" } : { size: combo >= 15 ? 38 : 30 });
       burst(x, y, reduceMotion ? 4 : 8 + Math.round(c / 2), reduceMotion ? 1 : 2 + Math.round(c / 8));
       sfx("pop", { combo });
       vibrate(combo >= 10 ? 18 : 10);
@@ -803,6 +851,21 @@
 
   const nextGoldenDelay = () => rand(55, 130) / (has("gold-luck") ? 2 : 1);
 
+  // Buffs, coins on screen and click streaks don't survive a rebirth or reset.
+  function clearTransient() {
+    for (const k of Object.keys(buffs)) delete buffs[k];
+    if (golden) golden.node.remove();
+    golden = null;
+    goldenTimer = nextGoldenDelay();
+    for (const c of rainCoins) c.node.remove();
+    rainCoins.length = 0;
+    rainLeft = 0;
+    combo = 0;
+    recentClicks.length = 0;
+    burstBest = 0;
+    lastActiveClick = performance.now();
+  }
+
   function spawnGolden() {
     const node = el("button", "golden", '<img src="./coin.png" alt="" draggable="false" />');
     node.setAttribute("aria-label", "דביר זהב! ללחוץ מהר");
@@ -898,7 +961,7 @@
     if (effect === "lucky") {
       const gain = Math.max(R.perClick * 30, Math.min(state.count * 0.15, R.perSecBase * 900)) + 13;
       earn(gain);
-      floatText(x, y, "+" + fmt(gain), { size: 44, speed: 110, life: 1.5 });
+      floatNum(x, y, gain, { size: 44, speed: 110, life: 1.5 });
       toast(`🍀 מזל! ${plus(gain)} דבירים`);
       restartAnim(countEl, "flash-gold");
       pop.v += 8;
@@ -945,7 +1008,7 @@
     c.node.remove();
     const gain = Math.max(R.perSecBase * 4, R.perClick * 4) + 5;
     earn(gain);
-    floatText(c.x, c.y, "+" + fmt(gain), { size: 30 });
+    floatNum(c.x, c.y, gain, { size: 30 });
     burst(c.x, c.y, reduceMotion ? 3 : 10, 0, ["#ffc42e", "#fff3c4", "#ffe066"]);
     sfx("pop", { combo: 22 });
     vibrate(12);
@@ -984,8 +1047,11 @@
 
   const unitCost = (b) => b.base * Math.pow(COST_GROWTH, owned(b));
   const costFor = (b, n) => Math.ceil((unitCost(b) * (Math.pow(COST_GROWTH, n) - 1)) / (COST_GROWTH - 1));
-  const maxAffordable = (b) =>
-    Math.max(0, Math.floor(Math.log(1 + (state.count * (COST_GROWTH - 1)) / unitCost(b)) / Math.log(COST_GROWTH)));
+  function maxAffordable(b) {
+    let n = Math.max(0, Math.floor(Math.log(1 + (state.count * (COST_GROWTH - 1)) / unitCost(b)) / Math.log(COST_GROWTH)));
+    while (n > 0 && costFor(b, n) > state.count) n--;
+    return n;
+  }
 
   function buyCount(b) {
     if (state.buyAmount === "max") return Math.max(1, maxAffordable(b));
@@ -1204,7 +1270,7 @@
 
   function checkAchievements() {
     const c = achContext();
-    let got = false;
+    const got = [];
     for (const a of ACHS) {
       if (achSet.has(a.id)) continue;
       let ok = false;
@@ -1215,12 +1281,16 @@
       state.achievements.push(a.id);
       achSet.add(a.id);
       freshAch.add(a.id);
-      got = true;
-      banner(a.icon, "🏆 הישג חדש:", a.name, `${a.desc} · ${ltr("+1%")} ייצור`);
+      got.push(a);
+    }
+    if (got.length) {
+      if (got.length <= 2) {
+        for (const a of got) banner(a.icon, "🏆 הישג חדש:", a.name, `${a.desc} · ${ltr("+1%")} ייצור`);
+      } else {
+        banner("🏆", "🏆", `${got.length} הישגים חדשים!`, `${got.map((a) => a.name).join(" · ")} · ${ltr("+" + got.length + "%")} ייצור`);
+      }
       sfx("achievement");
       vibrate([20, 30, 20]);
-    }
-    if (got) {
       recalc();
       renderRates();
       save();
@@ -1440,7 +1510,7 @@
     $("rebStars").textContent = fmt(state.stars);
     $("rebBonus").textContent =
       state.stars > 0
-        ? `הכוכבים נותנים ${ltr("+" + fmt(state.stars * STAR_BONUS * 100) + "%")} לייצור וללחיצות.`
+        ? `הכוכבים נותנים ${pct(state.stars * STAR_BONUS * 100)} לייצור וללחיצות.`
         : `כל כוכב נותן ${ltr("+10%")} לייצור וללחיצות, לתמיד.`;
     $("rebGain").textContent = `${fmt(gain)} ⭐`;
     const have = state.stars + gain;
@@ -1449,51 +1519,59 @@
     const frac = Math.max(0, Math.min(1, (state.totalEarned - from) / (to - from)));
     $("rebProgress").style.width = frac * 100 + "%";
     $("rebNext").textContent = `עוד ${fmt(Math.max(0, to - state.totalEarned))} דבירים לכוכב הבא`;
-    $("rebirthBtn").disabled = gain < 1;
+    $("rebirthBtn").disabled = rebirthing || gain < 1;
   }
+
+  let rebirthing = false;
 
   $("rebirthBtn").addEventListener("click", async () => {
     const gain = rebirthGain();
-    if (gain < 1) return;
+    if (rebirthing || gain < 1) return;
     sfx("tab");
     const ok = await confirmModal({
       icon: "🌟",
       title: "לידה מחדש?",
-      text: `תקבלו ${fmt(gain)} כוכבים (${ltr("+" + fmt(gain * STAR_BONUS * 100) + "%")} לתמיד). הדבירים, המבנים והשדרוגים יתאפסו.`,
-      ok: "✨ כן, לידה מחדש!",
+      text: `תקבלו ${fmt(gain)} כוכבים (${pct(gain * STAR_BONUS * 100)} לתמיד). הדבירים, המבנים והשדרוגים יתאפסו.`,
+      ok: "✨ כן!",
       okClass: "star",
     });
-    if (ok) doRebirth(gain);
+    const now = rebirthGain();
+    if (ok && !rebirthing && now >= 1) doRebirth(now);
   });
 
   function doRebirth(gain) {
+    rebirthing = true;
+    $("rebirthBtn").disabled = true;
+    // The new run starts right away; the screen catches up behind the flash.
+    state.stars += gain;
+    state.rebirths += 1;
+    state.count = 0;
+    state.runEarned = 0;
+    state.owned = {};
+    state.upgrades = [];
+    clearTransient();
+    syncSets();
+    recalc();
+    applyMood();
+    save();
+
     sfx("rebirth");
     vibrate([60, 60, 120, 60, 200]);
     restartAnim(flashEl, "go");
     restartAnim(dvirSpin, "reborn");
     BG.pulse(1);
     shake(0.6);
-    setTimeout(() => {
-      state.stars += gain;
-      state.rebirths += 1;
-      state.count = 0;
-      state.runEarned = 0;
-      state.owned = {};
-      state.upgrades = [];
-      for (const k of Object.keys(buffs)) delete buffs[k];
-      syncSets();
-      recalc();
-      applyMood();
-      renderAll(true);
-      save();
-    }, 650);
+    setTimeout(() => renderAll(true), 650);
     setTimeout(() => {
       const [x, y] = centerOf(dvir);
       starBurst(x, y, reduceMotion ? 10 : 60, 1.6);
       confettiRain(reduceMotion ? 30 : 140, 0.3);
-      toast(`✨ נולדתם מחדש! ${ltr("+" + fmt(gain))} ⭐`, 3600);
+      toast(`✨ נולדתם מחדש! ${plus(gain)} ⭐`, 3600);
     }, 1050);
-    setTimeout(() => dvirSpin.classList.remove("reborn"), 1700);
+    setTimeout(() => {
+      dvirSpin.classList.remove("reborn");
+      rebirthing = false;
+    }, 1700);
   }
 
   // ---------------------------------------------------------------
@@ -1587,7 +1665,8 @@
     if (!ok) return;
     const keep = { sound: state.sound, music: state.music, vibe: state.vibe };
     state = { ...defaults(), ...keep };
-    for (const k of Object.keys(buffs)) delete buffs[k];
+    clearTransient();
+    bannerQueue.length = 0;
     freshAch.clear();
     selectedAch = null;
     syncSets();
@@ -1662,6 +1741,8 @@
   // ---------------------------------------------------------------
   // Main loop
   // ---------------------------------------------------------------
+  const coarse = window.matchMedia("(pointer: coarse)").matches;
+  let bgAcc = 0;
   let last = performance.now();
   let uiTimer = 0;
   let slowTimer = 0;
@@ -1677,7 +1758,7 @@
     const gained = R.perSec * Math.min(elapsed, OFFLINE_CAP_SECONDS);
     earn(gained);
     if (elapsed > 30 && gained >= 1) {
-      toast(`ברוכים השבים! בזמן שלא הייתם נאספו ${fmt(gained)} דבירים 💰`, 4200);
+      toast(`💰 בזמן שלא הייתם: ${plus(gained)} דבירים`, 4200);
     }
     state.playTime += Math.min(elapsed, 1);
 
@@ -1687,9 +1768,13 @@
     stepShake(dt);
     stepGolden(dt);
     stepRain(dt);
-    try {
-      BG.step(dt);
-    } catch (_) {}
+    bgAcc += dt;
+    if (!coarse || bgAcc >= 1 / 31) {
+      try {
+        BG.step(Math.min(bgAcc, 0.05));
+      } catch (_) {}
+      bgAcc = 0;
+    }
     stepParticles(dt);
     renderScore();
 
@@ -1705,8 +1790,10 @@
     slowTimer += elapsed;
     if (slowTimer > 0.5) {
       slowTimer = 0;
-      checkAchievements();
-      checkSkinUnlocks();
+      if (splashEl.classList.contains("out")) {
+        checkAchievements();
+        checkSkinUnlocks();
+      }
       renderDots();
       BG.setProduction(R.perSec);
     }
@@ -1727,13 +1814,6 @@
   syncSets();
   recalc();
 
-  // Earnings while the game was closed (production only, buffs don't carry over).
-  const away = Math.min(OFFLINE_CAP_SECONDS, Math.max(0, (Date.now() - state.lastSeen) / 1000));
-  const offline = R.perSecBase * away;
-  if (offline >= 1) earn(offline);
-
-  // Don't replay milestones that were already passed before this visit.
-  while (state.milestone < D.MILESTONES.length && state.totalEarned >= D.MILESTONES[state.milestone]) state.milestone += 1;
   // Achievements earned with the old version unlock quietly.
   {
     const c = achContext();
@@ -1750,6 +1830,13 @@
     recalc();
   }
 
+  // Earnings while the game was closed (production only, buffs don't carry over).
+  const away = Math.min(OFFLINE_CAP_SECONDS, Math.max(0, (Date.now() - state.lastSeen) / 1000));
+  const offline = R.perSecBase * away;
+  if (offline >= 1) earn(offline);
+
+  // Don't replay milestones that were already passed before this visit.
+  while (state.milestone < D.MILESTONES.length && state.totalEarned >= D.MILESTONES[state.milestone]) state.milestone += 1;
   try {
     BG.init($("bg"), { coinSrc: "./coin.png" });
   } catch (_) {}
@@ -1774,7 +1861,7 @@
     setTimeout(() => dvirSpin.classList.remove("intro"), 800);
     setTimeout(() => splashEl.remove(), 700);
     if (offline >= 1) {
-      setTimeout(() => toast(`ברוכים השבים! בזמן שלא הייתם נאספו ${fmt(offline)} דבירים 💰`, 4200), 650);
+      setTimeout(() => toast(`💰 בזמן שלא הייתם: ${plus(offline)} דבירים`, 4200), 650);
     }
     moveTabIndicator();
   }

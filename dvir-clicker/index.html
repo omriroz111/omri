@@ -708,7 +708,7 @@
         z-index: 1;
         border: 0;
         background: none;
-        padding: 5px 11px;
+        padding: 9px 13px;
         font-size: 13px;
         font-weight: 800;
         color: var(--muted);
@@ -1044,7 +1044,7 @@
         font-size: 13px;
         text-decoration: underline;
         cursor: pointer;
-        padding: 6px;
+        padding: 12px 16px;
       }
 
       /* Skins */
@@ -1245,29 +1245,33 @@
       .toast,
       .ach-banner {
         position: fixed;
-        top: max(14px, env(safe-area-inset-top));
-        left: 50%;
+        top: max(10px, env(safe-area-inset-top));
+        left: 0;
+        right: 0;
+        margin-inline: auto;
+        width: max-content;
+        max-width: calc(100vw - 24px);
         z-index: 20;
-        max-width: calc(100vw - 32px);
         pointer-events: none;
-        transform: translate(-50%, calc(-100% - 60px));
+        transform: translateY(calc(-100% - 60px));
         transition: transform 0.5s var(--ease-spring);
       }
 
       .toast {
-        padding: 12px 20px;
-        border-radius: 16px;
+        padding: 9px 16px;
+        border-radius: 14px;
         background: linear-gradient(180deg, #fff3c4, var(--gold));
         color: #3a1d00;
         font-weight: 800;
-        font-size: 16px;
+        font-size: 15px;
+        line-height: 1.35;
         text-align: center;
         box-shadow: 0 12px 30px rgba(0, 0, 0, 0.45);
       }
 
       .toast.show,
       .ach-banner.show {
-        transform: translate(-50%, 0);
+        transform: none;
       }
 
       .ach-banner {
@@ -1275,9 +1279,7 @@
         display: flex;
         align-items: center;
         gap: 12px;
-        top: max(6px, env(safe-area-inset-top));
         min-width: min(300px, calc(100vw - 24px));
-        max-width: calc(100vw - 24px);
         padding: 6px 14px 6px 8px;
         border-radius: 16px;
         background: linear-gradient(135deg, #2c1d5e, #1a1238);
@@ -1594,6 +1596,17 @@
           min-height: 0;
           padding: 8px 16px 16px;
         }
+        .toast,
+        .ach-banner {
+          left: 452px;
+          right: 16px;
+          max-width: calc(100vw - 484px);
+        }
+        .ach-banner {
+          top: auto;
+          bottom: 22px;
+          transform: translateY(calc(100% + 60px));
+        }
       }
 
       /* Phones (portrait): Dvir stays on screen; the panel fills the rest with tabs at the bottom. */
@@ -1621,8 +1634,8 @@
         }
         .ach-banner {
           top: auto;
-          bottom: calc(max(12px, env(safe-area-inset-bottom)) + 76px);
-          transform: translate(-50%, calc(100% + 120px));
+          bottom: calc(max(12px, env(safe-area-inset-bottom)) + 6px);
+          transform: translateY(calc(100% + 60px));
         }
         .card {
           grid-template-columns: 44px 1fr auto;
@@ -1633,6 +1646,51 @@
           width: 44px;
           height: 44px;
           font-size: 25px;
+        }
+      }
+
+      @media (max-width: 899px) and (orientation: portrait) and (max-height: 760px) {
+        :root {
+          --dvir-size: min(50vw, 25vh, 300px);
+        }
+        .topbar {
+          padding-top: max(8px, env(safe-area-inset-top));
+        }
+        .logo {
+          font-size: 22px;
+        }
+        .toggle {
+          width: 38px;
+          height: 38px;
+          font-size: 17px;
+        }
+        .count {
+          font-size: 36px;
+        }
+        .count-label {
+          font-size: 15px;
+        }
+        .rates {
+          margin-top: 1px;
+          font-size: 12.5px;
+        }
+        .clicker {
+          margin: calc(var(--dvir-size) * 0.08) 0 calc(var(--dvir-size) * 0.03);
+        }
+        .status-row {
+          height: 26px;
+        }
+        .view-head {
+          margin-bottom: 8px;
+        }
+        .view h2 {
+          font-size: 18px;
+        }
+        .tab {
+          padding: 5px 0 4px;
+        }
+        .tab-icon {
+          font-size: 19px;
         }
       }
 
